@@ -3,7 +3,7 @@ import java.util.UUID
 
 object AppConstants {
     object DEBUG {
-        val ONBOARDING_RESET = true
+        val ONBOARDING_RESET = false
     }
 
     object GATT {

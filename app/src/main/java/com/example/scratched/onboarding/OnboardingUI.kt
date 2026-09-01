@@ -184,6 +184,27 @@ fun NotificationPermissionScreen(
 }
 
 @Composable
+fun GrantPermissionsManually(
+    modifier: Modifier = Modifier,
+    onContinue: () -> Unit,
+) {
+    Surface(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Spacer(modifier = Modifier.height(48.dp))
+            Button(onClick = onContinue) {
+                Text("GRANT MANUALLY")
+            }
+        }
+    }
+}
+
+@Composable
 fun AllSetScreen(
     modifier: Modifier = Modifier,
     onContinue: () -> Unit

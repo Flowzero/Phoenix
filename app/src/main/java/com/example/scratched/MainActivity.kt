@@ -23,16 +23,17 @@ import kotlinx.coroutines.launch
 import com.example.scratched.onboarding.*
 
 import android.util.Log
-import com.example.scratched.onboarding.AppFlowCoordinator
+import com.example.scratched.onboarding.OnboardingFlowCoordinator
 import com.example.scratched.ui.theme.ScratchedTheme
+import com.example.scratched.utilities.PermissionsManager
 
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var permissionManager: PermissionsManager
-    private lateinit var onboardingState: OnboardingStateRepository
+    private lateinit var onboardingState: OnboardingStatusRepository
     // private lateinit var onboardingManager: OnboardingManager
-    private lateinit var  appFlowCoordinator: AppFlowCoordinator
+    private lateinit var  appFlowCoordinator: OnboardingFlowCoordinator
     //private lateinit var bluetoothStatusManager: BluetoothStatusManager
     //private lateinit var locationStatusManager: LocationStatusManager
 
@@ -79,7 +80,7 @@ class MainActivity : ComponentActivity() {
         )
          */
 
-        appFlowCoordinator = AppFlowCoordinator(
+        appFlowCoordinator = OnboardingFlowCoordinator(
             activity = this,
             permissionsManager = permissionManager,
             onboardingState = onboardingState,
@@ -176,6 +177,19 @@ class MainActivity : ComponentActivity() {
                     }
                 )
             }
+
+            /*
+            OnboardingState.GRANT_PERMISSIONS_MANUALLY -> {
+                GrantPermissionsManually(
+                    modifier = modifier,
+                    onContinue = {
+                        Log.d("MainActivity", "GRANT MANUALLY continue clicked")
+                        openAppSettings()
+                    }
+                )
+            }
+
+             */
 
             OnboardingState.ALL_SET -> {
                 AllSetScreen(
