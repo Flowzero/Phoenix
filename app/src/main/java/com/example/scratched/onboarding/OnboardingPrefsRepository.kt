@@ -3,10 +3,10 @@ package com.example.scratched.onboarding
 import android.content.Context
 
 
-class OnboardingPrefsRepository(private val context: Context) : OnboardingStatusRepository {
+class OnboardingPrefsRepository(private val context: Context) : OnboardingStateRepository {
 
     companion object {
-        private val TAG = "OnboardingPrefsRepository"
+        private const val TAG = "OnboardingPrefsRepository"
         private const val PREFS_NAME = "scratch_onboarding"
         private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     }

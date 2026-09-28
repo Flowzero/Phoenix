@@ -27,39 +27,11 @@ import androidx.activity.result.contract.ActivityResultContracts
  */
 
 class OnboardingFlowCoordinator(
-    /**
-     * The host Activity, required to register and launch the system permission dialog
-     * via [ActivityResultLauncher].
-     */
     private val activity: ComponentActivity,
-
-    /**
-     * Utility class responsible for checking permission grant states and providing
-     * OS-version-specific lists of required permissions.
-     */
     private val permissionsManager: PermissionsManager,
-
-    /**
-     * Repository interface for persisting the onboarding completion state (e.g., via SharedPreferences).
-     */
-    private val onboardingState: OnboardingStatusRepository,
-
-    /**
-     * Callback triggered when the entire onboarding flow is successfully completed.
-     * The UI layer uses this to navigate to the main application screen.
-     */
+    private val onboardingState: OnboardingStateRepository,
     private val onboardingComplete: () -> Unit,
-
-    /**
-     * Callback triggered when the user permanently denies critical permissions.
-     * Provides an error message that the UI can display to guide the user to Settings.
-     */
     private val onboardingFailed: (String) -> Unit,
-
-    /**
-     * Callback used to push state changes to the UI (typically via a ViewModel's StateFlow).
-     * This triggers Jetpack Compose to recompose and show the correct screen.
-     */
     private val updateOnboardingState: (OnboardingState) -> Unit
 ) {
     companion object {
