@@ -2,99 +2,59 @@ package com.example.scratched
 
 import android.content.Intent
 import android.net.Uri
-import android.provider.Settings
-
 import android.os.Bundle
+import android.provider.Settings
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.launch
-
-import com.example.scratched.onboarding.*
-
-import android.util.Log
-import com.example.scratched.onboarding.OnboardingFlowCoordinator
+import com.example.scratched.onboarding.AboutScreen
+import com.example.scratched.onboarding.AllSetScreen
+import com.example.scratched.onboarding.BluetoothPermissionScreen
+import com.example.scratched.onboarding.LocationPermissionScreen
+import com.example.scratched.onboarding.MainAppScreen
+import com.example.scratched.onboarding.NotificationPermissionScreen
+import com.example.scratched.onboarding.OnboardingState
+import com.example.scratched.onboarding.WelcomeScreen
 import com.example.scratched.ui.theme.ScratchedTheme
-import com.example.scratched.utilities.PermissionsManager
+import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var permissionManager: PermissionsManager
-    private lateinit var onboardingState: OnboardingStatusRepository
-    // private lateinit var onboardingManager: OnboardingManager
-    private lateinit var  appFlowCoordinator: OnboardingFlowCoordinator
-    //private lateinit var bluetoothStatusManager: BluetoothStatusManager
-    //private lateinit var locationStatusManager: LocationStatusManager
+    // ✅ ViewModel создаётся и внедряется автоматически (через Hilt или Factory)
+    private val viewModel: MainViewModel by viewModels()
 
-    private val mainViewModel: MainViewModel by viewModels()
+    // ✅ Лаунчер для запроса разрешений. Живёт в Activity, так как работает с Android Framework
+    private val permissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        // Передаём результат в ViewModel, а она уже отдаст его Координатору
+        viewModel.onPermissionsResult(result)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        //installSplashScreen()
         enableEdgeToEdge()
-
-        // Initialize permission manager
-        permissionManager = PermissionsManager(this)
-
-        // Initialize core components
-        /*bluetoothStatusManager = BluetoothStatusManager(
-            activity = this,
-            context = this,
-            onBluetoothEnabled = ::handleBluetoothEnabled,
-            onBluetoothDisabled = ::handleBluetoothDisabled
-        )
-        //locationStatusManager = LocationStatusManager(
-            activity = this,
-            context = this,
-            onLocationEnabled = ::handleLocationEnabled,
-            onLocationDisabled = ::handleLocationDisabled
-        )
-
-         */
-
-        onboardingState = OnboardingPrefsRepository(
-            context = this
-        )
-
-        /*
-        // Initialize onboarding manager
-        onboardingManager = OnboardingManager(
-            activity = this,
-            permissionManager = permissionManager,
-            onboardingComplete = ::handleOnboardingComplete,
-            onboardingFailed = ::handleOnboardingFailed,
-            updateOnboardingState = { state ->
-                mainViewModel.updateOnboardingState(state)
-            }
-        )
-         */
-
-        appFlowCoordinator = OnboardingFlowCoordinator(
-            activity = this,
-            permissionsManager = permissionManager,
-            onboardingState = onboardingState,
-            onboardingComplete = ::handleOnboardingComplete,
-            onboardingFailed = ::handleOnboardingFailed,
-            updateOnboardingState = { state ->
-                mainViewModel.updateOnboardingState(state)
-            }
-        )
 
         setContent {
             ScratchedTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     OnboardingFlowScreen(
+                        viewModel = viewModel,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
@@ -103,130 +63,51 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Start onboarding when activity is created
-        // onboardingManager.startAppFlow()
-        appFlowCoordinator.startAppFlow()
-
-
-
-        // Collect state changes
+        // ✅ Наблюдаем за состоянием (StateFlow)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                mainViewModel.onboardingState.collect { state ->
-                    handleOnboardingStateChange(state)
+                viewModel.onboardingState.collect { state ->
+                    Log.d("MainActivity", "Onboarding state changed to: $state")
+                    // Дополнительная логика при смене состояния, если нужна
+                }
+            }
+        }
+
+        // ✅ Наблюдаем за одноразовыми событиями (SharedFlow)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiEvents.collect { event ->
+                    handleUiEvent(event)
                 }
             }
         }
     }
 
-    @Composable
-    private fun OnboardingFlowScreen(modifier: Modifier = Modifier) {
-        val onboardingState = mainViewModel.onboardingState.collectAsState().value
+    // ==================== Обработка событий от ViewModel ====================
 
-        when(onboardingState) {
-            OnboardingState.WELCOME -> {
-                WelcomeScreen(
-                    modifier = modifier,
-                    onContinue = {
-                        Log.d("MainActivity", "Welcome continue clicked")
-                        //onboardingManager.navigateToNextStep()
-                        appFlowCoordinator.navigateToNextStep()
-                    }
-                )
+    private fun handleUiEvent(event: UiEvent) {
+        when (event) {
+            is UiEvent.RequestPermissions -> {
+                Log.d("MainActivity", "Launching permission request for: ${event.permissions.toList()}")
+                permissionsLauncher.launch(event.permissions)
             }
 
-            OnboardingState.ABOUT -> {
-                AboutScreen(
-                    modifier = modifier,
-                    onContinue = {
-                        Log.d("MainActivity", "About continue clicked")
-                        //onboardingManager.navigateToNextStep()
-                        appFlowCoordinator.navigateToNextStep()
-                    }
-                )
+            is UiEvent.NavigateToMainApp -> {
+                Log.d("MainActivity", "Onboarding completed, navigating to main app")
+                // startActivity(Intent(this, MainAppActivity::class.java))
+                // finish()
+                Toast.makeText(this, "Онбординг завершён!", Toast.LENGTH_SHORT).show()
             }
 
-            OnboardingState.BLUETOOTH -> {
-                BluetoothPermissionScreen(
-                    modifier = modifier,
-                    onContinue = {
-                        Log.d("MainActivity", "Bluetooth continue clicked")
-                        //onboardingManager.requestCurrentStatePermissions()
-                        appFlowCoordinator.requestCurrentStatePermissions()
-                    }
-                )
+            is UiEvent.ShowError -> {
+                Log.e("MainActivity", "Onboarding error: ${event.message}")
+                Toast.makeText(this, event.message, Toast.LENGTH_LONG).show()
+                // Или показать Snackbar / открыть настройки:
+                // openAppSettings()
             }
 
-            OnboardingState.LOCATION -> {
-                LocationPermissionScreen(
-                    modifier = modifier,
-                    onContinue = {
-                        Log.d("MainActivity", "Location continue clicked")
-                        appFlowCoordinator.requestCurrentStatePermissions()
-                    }
-                )
-            }
-
-            OnboardingState.NOTIFICATION -> {
-                NotificationPermissionScreen(
-                    modifier = modifier,
-                    onContinue = {
-                        Log.d("MainActivity", "Notification continue clicked")
-                        //onboardingManager.requestCurrentStatePermissions()
-                        appFlowCoordinator.requestCurrentStatePermissions()
-                    }
-                )
-            }
-
-            /*
-            OnboardingState.GRANT_PERMISSIONS_MANUALLY -> {
-                GrantPermissionsManually(
-                    modifier = modifier,
-                    onContinue = {
-                        Log.d("MainActivity", "GRANT MANUALLY continue clicked")
-                        openAppSettings()
-                    }
-                )
-            }
-
-             */
-
-            OnboardingState.ALL_SET -> {
-                AllSetScreen(
-                    modifier = modifier,
-                    onContinue = {
-                        Log.d("MainActivity", "All set continue clicked")
-                        //onboardingManager.navigateToNextStep()
-                        appFlowCoordinator.navigateToNextStep()
-                    }
-                )
-            }
-            OnboardingState.COMPLETED -> {
-                MainAppScreen(
-                    modifier = Modifier
-                )
-            }
+            is UiEvent.EnableBluetooth -> TODO()
         }
-    }
-
-    private fun handleBluetoothEnabled() {
-        //
-    }
-
-    private fun handleBluetoothDisabled(message: String) {
-        //
-    }
-
-    private fun handleLocationEnabled() {
-        //
-    }
-
-    private fun handleLocationDisabled(message: String) {
-        //
-    }
-
-    private fun handleOnboardingStateChange(state: OnboardingState) {
-        Log.d("MainActivity", "Onboarding state changed to: $state")
     }
 
     private fun openAppSettings() {
@@ -237,16 +118,64 @@ class MainActivity : ComponentActivity() {
         startActivity(intent)
     }
 
-    private fun handleOnboardingComplete() {
-        Log.d("MainActivity", "Onboarding completed - navigating to main app")
-        // Initialize app logic and navigate to main app
-        // startActivity(Intent(this, MainAppActivity::class.java))
-        // finish()
-    }
+    // ==================== UI Compose ====================
 
-    private fun handleOnboardingFailed(message: String) {
-        Log.e("MainActivity", "Onboarding failed: $message")
-        openAppSettings()
+    @Composable
+    private fun OnboardingFlowScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
+        // ✅ Собираем состояние из ViewModel
+        val onboardingState by viewModel.onboardingState.collectAsState()
 
+        when (onboardingState) {
+            is OnboardingState.WELCOME -> {
+                WelcomeScreen(
+                    modifier = modifier,
+                    onContinue = { viewModel.onNextClicked() } // ✅ Вызов через ViewModel
+                )
+            }
+            is OnboardingState.ABOUT -> {
+                AboutScreen(
+                    modifier = modifier,
+                    onContinue = { viewModel.onNextClicked() }
+                )
+            }
+            is OnboardingState.BLUETOOTH -> {
+                BluetoothPermissionScreen(
+                    modifier = modifier,
+                    onContinue = { viewModel.onRequestPermissionsClicked() } // ✅ Запрос через ViewModel
+                )
+            }
+            is OnboardingState.LOCATION -> {
+                LocationPermissionScreen(
+                    modifier = modifier,
+                    onContinue = { viewModel.onRequestPermissionsClicked() }
+                )
+            }
+            is OnboardingState.NOTIFICATION -> {
+                NotificationPermissionScreen(
+                    modifier = modifier,
+                    onContinue = { viewModel.onRequestPermissionsClicked() }
+                )
+            }
+            is OnboardingState.ALL_SET -> {
+                AllSetScreen(
+                    modifier = modifier,
+                    onContinue = { viewModel.onNextClicked() }
+                )
+            }
+            is OnboardingState.COMPLETED -> {
+                MainAppScreen(modifier = modifier)
+            }
+            is OnboardingState.FAILED -> {
+                // ✅ Обработка нового состояния ошибки
+                /*FailedScreen(
+                    modifier = modifier,
+                    errorMessage = (onboardingState as OnboardingState.Failed).errorMessage,
+                    onOpenSettings = { openAppSettings() }
+                )
+
+                 */
+                TODO()
+            }
+        }
     }
 }

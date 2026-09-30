@@ -3,71 +3,53 @@ package com.example.scratched.onboarding
 import android.Manifest
 import android.os.Build
 import android.util.Log
-import androidx.activity.ComponentActivity
 import com.example.scratched.utilities.PermissionsManager
-import com.example.scratched.constants.AppConstants
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Central coordinator (State Machine) responsible for managing the application's
  * onboarding flow and runtime permissions requests.
- *
- * RESPONSIBILITIES:
- * - Determining the correct onboarding screen to display based on the current permission state
- * - Orchestrating the request for runtime permissions via Android's ActivityResult API.
- * - Handling the results of permission requests and routing the user to the next logical step.
- * - Marking the onboarding process as complete in persistent storage.
- *
- * ARCHITECTURAL ROLE:
- * This class acts as the "brain" of the onboarding process. It is completely decoupled
- * from the UI layer (Jetpack Compose). Instead of directly manipulating UI components,
- * it communicates with the UI via callback functions (e.g., [updateOnboardingState]),
- * allowing the ViewModel/Activity to react to state changes.
  */
 
 class OnboardingFlowCoordinator(
-    private val activity: ComponentActivity,
     private val permissionsManager: PermissionsManager,
-    private val onboardingState: OnboardingStateRepository,
-    private val onboardingComplete: () -> Unit,
-    private val onboardingFailed: (String) -> Unit,
-    private val updateOnboardingState: (OnboardingState) -> Unit
+    private val onboardingStatusRepository: OnboardingStatusRepository,
 ) {
     companion object {
         private const val TAG = "OnboardingFlowCoordinator"
     }
-    // ...
+    private var isFirstTimeLaunch: Boolean = onboardingStatusRepository.isFirstTimeLaunch()
 
-    private var isFirstTimeLaunch = true
-    private var currentState: OnboardingState = OnboardingState.WELCOME
-    private var permissionsLauncher: ActivityResultLauncher<Array<String>>? = null
+    private val _currentState = MutableStateFlow<OnboardingState>(OnboardingState.WELCOME)
+    // accessible from ViewModel
+    val currentState: StateFlow<OnboardingState> = _currentState.asStateFlow()
 
-    init {
-        setupPermissionsLauncher()
-        isFirstTimeLaunch = onboardingState.isFirstTimeLaunch()
-    }
+    private val _events = MutableSharedFlow<OnboardingEvent>(
+        extraBufferCapacity = 10,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    // accessible from ViewModel
+    val events: SharedFlow<OnboardingEvent> = _events.asSharedFlow()
 
-    private fun setupPermissionsLauncher() {
-        permissionsLauncher = activity.registerForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { permissions ->
-            handlePermissionResult(permissions)
-        }
-    }
 
     fun startAppFlow() {
         Log.d(TAG, "Starting App Flow. isFirstTimeLaunch=$isFirstTimeLaunch")
+
         if (isFirstTimeLaunch) {
             startFirstTimeOnboarding()
         } else {
             startSubsequentOnboarding()
         }
-        updateOnboardingState(currentState)
     }
 
     private fun startFirstTimeOnboarding() {
-        currentState = OnboardingState.WELCOME
+        _currentState.value = OnboardingState.WELCOME
     }
 
     private fun startSubsequentOnboarding() {
@@ -76,11 +58,11 @@ class OnboardingFlowCoordinator(
 
         if (missingRequiredPermissions.isEmpty()) {
             Log.d(TAG, "All required permissions are granted")
-            currentState = OnboardingState.COMPLETED
+            completeOnboarding()
             return
         }
 
-        currentState = determineInitStateFromMissingPermissions(missingRequiredPermissions)
+        _currentState.value = determineInitStateFromMissingPermissions(missingRequiredPermissions)
         Log.d(TAG, "Starting subsequent onboarding at state: $currentState")
     }
 
@@ -99,24 +81,25 @@ class OnboardingFlowCoordinator(
     }
 
     fun navigateToNextStep() {
-        val previousState = currentState
+        val previousState = _currentState.value
         Log.d(TAG, "navigateToNextStep called. Previous state: $previousState")
 
-        currentState = when (previousState) {
-            OnboardingState.WELCOME -> OnboardingState.ABOUT
-            OnboardingState.ABOUT -> getNextMissingState()
-            OnboardingState.BLUETOOTH -> getNextMissingState()
-            OnboardingState.LOCATION -> getNextMissingState()
-            OnboardingState.NOTIFICATION -> OnboardingState.ALL_SET
-            OnboardingState.ALL_SET -> OnboardingState.COMPLETED
-            OnboardingState.COMPLETED -> OnboardingState.COMPLETED
+        val newState = when (previousState) {
+            is OnboardingState.WELCOME -> OnboardingState.ABOUT
+            is OnboardingState.ABOUT -> getNextMissingState()
+            is OnboardingState.BLUETOOTH -> getNextMissingState()
+            is OnboardingState.LOCATION -> getNextMissingState()
+            is OnboardingState.NOTIFICATION -> OnboardingState.ALL_SET
+            is OnboardingState.ALL_SET -> OnboardingState.COMPLETED
+            is OnboardingState.COMPLETED -> OnboardingState.COMPLETED
+            is OnboardingState.FAILED -> previousState // Stay on the error screen
         }
 
+        _currentState.value = newState
         Log.d(TAG, "New state evaluated: $currentState")
 
         if (previousState != currentState) {
             Log.d(TAG, "SUCCESS: Navigated from $previousState to $currentState")
-            updateOnboardingState(currentState)
         } else {
             Log.w(TAG, "WARNING: State did not change! Stuck at $currentState")
         }
@@ -151,8 +134,8 @@ class OnboardingFlowCoordinator(
     fun requestCurrentStatePermissions() {
         Log.d(TAG, "requestCurrentStatePermissions called for state: $currentState")
 
-        val permissionsToRequest = when (currentState) {
-            OnboardingState.BLUETOOTH -> {
+        val permissionsToRequest = when (val state = _currentState.value) {
+            is OnboardingState.BLUETOOTH -> {
                 permissionsManager.getBluetoothPermissions()
                     .filter { !permissionsManager.isPermissionGranted(it) }
             }
@@ -168,15 +151,15 @@ class OnboardingFlowCoordinator(
         }
 
         if (permissionsToRequest.isNotEmpty()) {
-            Log.d(TAG, "Launching permission request for: $permissionsToRequest")
-            permissionsLauncher?.launch(permissionsToRequest.toTypedArray())
+            Log.d(TAG, "Requesting permissions: $permissionsToRequest")
+            _events.tryEmit(OnboardingEvent.RequestPermissions(permissionsToRequest.toTypedArray()))
         } else {
             Log.d(TAG, "No permissions to request for $currentState - moving to the next step")
             navigateToNextStep()
         }
     }
 
-    private fun handlePermissionResult(permissions: Map<String, Boolean>) {
+    fun onHandlePermissionsResult(permissions: Map<String, Boolean>) {
         Log.d(TAG, "Permissions result: $permissions")
 
         val deniedPermissions = permissions.filter { !it.value }.keys
@@ -207,18 +190,19 @@ class OnboardingFlowCoordinator(
             append(deniedCritical.joinToString("\n") { "- $it" })
             append("\n\nPlease grant these permissions in Settings to use the app.")
         }
-        onboardingFailed(message)
+    }
+
+    fun onOpenSettingsRequested() {
+        _events.tryEmit(OnboardingEvent.ShowError("Откройте настройки приложения"))
     }
 
     private fun completeOnboarding() {
         Log.d(TAG, "Completing onboarding")
-        if (AppConstants.DEBUG.ONBOARDING_RESET) {
-            Log.d(TAG, "DEBUG MODE: Resetting onboarding completion")
-            onboardingState.resetCompletion()
-            return
-        }
-        onboardingState.markComplete()
-        onboardingComplete()
+
+        onboardingStatusRepository.markComplete()
+        _currentState.value = OnboardingState.COMPLETED
+
         Log.d(TAG, "Onboarding completed, navigating to main app screen")
+        _events.tryEmit((OnboardingEvent.NavigateToMainApp))
     }
 }

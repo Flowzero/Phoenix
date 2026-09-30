@@ -1,9 +1,11 @@
-package com.example.scratched.utilities
+package com.example.scratched.mesh
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.util.Log
 
 /**
  *
@@ -12,6 +14,8 @@ interface BluetoothAdapterWrapper {
     fun isSupported(): Boolean
     fun isEnabled(): Boolean
     fun getEnableIntent(): Intent?
+    fun getState(): BluetoothState
+    fun getAdapterName(): String?
 }
 
 class UsableBluetoothAdapter(private val context: Context): BluetoothAdapterWrapper {
@@ -26,13 +30,38 @@ class UsableBluetoothAdapter(private val context: Context): BluetoothAdapterWrap
         return try {
             bluetoothAdapter?.isEnabled == true
         } catch (e: SecurityException) {
-            false
+            false // no Bluetooth permissions
         }
     }
 
     override fun getEnableIntent(): Intent? {
         return try {
             Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+        } catch (e: SecurityException) {
+            null // no permisisons? for request
+        }
+    }
+
+    override fun getState(): BluetoothState {
+        if (!context.packageManager.hasSystemFeature(
+                PackageManager.FEATURE_BLUETOOTH_LE)) {
+            return BluetoothState.NOT_SUPPORTED
+        }
+        return try {
+            if (isEnabled()) {
+                BluetoothState.ENABLED
+            } else {
+                BluetoothState.DISABLED
+            }
+        } catch (e: SecurityException) {
+            Log.e("Unexpected error checking Bluetooth state", e.message.toString())
+            BluetoothState.DISABLED
+        }
+    }
+
+    override fun getAdapterName(): String? {
+        return try {
+            bluetoothAdapter?.name
         } catch (e: SecurityException) {
             null
         }

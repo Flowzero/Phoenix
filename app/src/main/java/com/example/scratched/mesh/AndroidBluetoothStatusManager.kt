@@ -1,10 +1,11 @@
 package com.example.scratched.mesh
 
 import android.content.Context
-import com.example.scratched.utilities.BluetoothAdapterWrapper
+import android.util.Log
 
 /**
- *
+ * Checks Bluetooth status (enabled/disabled) before
+ * performing a BLE operation
  */
 class AndroidBluetoothStatusManager(
     private val context: Context,
@@ -17,11 +18,21 @@ class AndroidBluetoothStatusManager(
         const val TAG = "BluetoothStatusManager"
     }
 
+    fun onHandleBluetoothStatus(status: BluetoothState) {
+        when (status) {
+            BluetoothState.ENABLED -> {
+                Log.d(TAG, "Bluetooth is enabled, proceeding")
+                onBluetoothEnabled()
+            }
+            BluetoothState.DISABLED ->  {
+                //requestEnableBluetooth()
+            }
+            BluetoothState.NOT_SUPPORTED -> {
+                Log.e(TAG, "Bluetooth is not supported on this device")
+                onBluetoothDisabled("This device does not support Bluetooth")
+            }
+        }
+    }
 
-}
 
-enum class BluetoothState {
-    ENABLED,
-    DISABLED,
-    NOT_SUPPORTED
 }

@@ -7,7 +7,7 @@ package com.example.scratched.onboarding
  * onboarding state without knowing how data is saved.
  */
 
-interface OnboardingStateRepository {
+interface OnboardingStatusRepository {
     fun isFirstTimeLaunch(): Boolean
     fun markComplete()
     fun resetCompletion()
