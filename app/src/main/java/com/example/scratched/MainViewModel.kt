@@ -3,7 +3,7 @@ package com.example.scratched
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.scratched.UiEvent.*
-import com.example.scratched.mesh.AndroidBluetoothStatusManager
+import com.example.scratched.mesh.BluetoothStateManager
 import com.example.scratched.mesh.BluetoothState
 import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
