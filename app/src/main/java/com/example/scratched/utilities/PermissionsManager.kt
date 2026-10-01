@@ -12,9 +12,9 @@ import com.example.scratched.onboarding.OnboardingFlowCoordinator
 /**
  * Centralized permissions management
  *
- * RESPONSIBILITIES:
- *      - Providing lists of required and optional permissions based on the device's API level
- *      - Check the current grant status for a specific permissions or a group of permissions
+ * PermissionsManger responsible for:
+ * * Providing lists of required and optional permissions based on the device's API level
+ * *Check the current grant status for a specific permissions or a group of permissions
  *
  * Note: The class only checks and reports permission states. Actual permissions requests are
  * handled by [OnboardingFlowCoordinator]

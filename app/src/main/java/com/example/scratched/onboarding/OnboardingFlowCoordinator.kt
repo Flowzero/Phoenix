@@ -7,14 +7,20 @@ import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Central coordinator (State Machine) responsible for managing the application's
- * onboarding flow and runtime permissions requests.
+ * Central coordinator (State Machine) responsible for managing the application's onboarding flow
+ *
+ * OnboardingFlowCoordinator responsible for:
+ * * Determining the correct onboarding screen to display based on the current permission state
+ * * Marking the onboarding process as complete in persistent storage
+ *
+ * @property permissionsManager
+ * @property onboardingStatusRepository
  */
 
 class OnboardingFlowCoordinator(
@@ -30,6 +36,7 @@ class OnboardingFlowCoordinator(
     // accessible from ViewModel
     val currentState: StateFlow<OnboardingState> = _currentState.asStateFlow()
 
+    // one time UI events (e.g. show Enable Bluetooth dialog)
     private val _events = MutableSharedFlow<OnboardingEvent>(
         extraBufferCapacity = 10,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -104,14 +111,11 @@ class OnboardingFlowCoordinator(
             Log.w(TAG, "WARNING: State did not change! Stuck at $currentState")
         }
 
-        if (currentState == OnboardingState.COMPLETED && previousState != OnboardingState.COMPLETED) {
+        if (newState == OnboardingState.COMPLETED && previousState != OnboardingState.COMPLETED) {
             completeOnboarding()
         }
     }
 
-    /**
-     * Evaluates permissions in priority order to ensure no screens are skipped.
-     */
     private fun getNextMissingState(): OnboardingState {
         val missingBluetooth = permissionsManager.getBluetoothPermissions()
             .any { !permissionsManager.isPermissionGranted(it) }
@@ -173,7 +177,7 @@ class OnboardingFlowCoordinator(
             }
             else -> {
                 Log.w(TAG, "Critical permissions denied: $deniedCriticalPermissions")
-                handleCriticalPermissionsDenial(deniedCriticalPermissions)
+                onOpenSettingsRequested()
             }
         }
     }
@@ -184,16 +188,8 @@ class OnboardingFlowCoordinator(
                 !permissionsManager.isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    private fun handleCriticalPermissionsDenial(deniedCritical: Set<String>) {
-        val message = buildString {
-            append("Critical permissions were denied. These are required for the app to function:\n")
-            append(deniedCritical.joinToString("\n") { "- $it" })
-            append("\n\nPlease grant these permissions in Settings to use the app.")
-        }
-    }
-
     fun onOpenSettingsRequested() {
-        _events.tryEmit(OnboardingEvent.ShowError("Откройте настройки приложения"))
+        _events.tryEmit(OnboardingEvent.ShowError("Open app setting and grant required permissions"))
     }
 
     private fun completeOnboarding() {

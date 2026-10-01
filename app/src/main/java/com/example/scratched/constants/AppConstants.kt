@@ -2,10 +2,6 @@ package com.example.scratched.constants
 import java.util.UUID
 
 object AppConstants {
-    object DEBUG {
-        val ONBOARDING_RESET = false
-    }
-
     object GATT {
         val SERVICE_UUID: UUID       = UUID.fromString("b113843f-2034-4016-ae93-0ee9de50677d")
         val CHARACTERISTIC_UUID: UUID= UUID.fromString("a306a7f9-29fb-4687-8bb5-ffbaf3391d26")

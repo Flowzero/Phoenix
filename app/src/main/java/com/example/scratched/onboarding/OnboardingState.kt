@@ -1,5 +1,10 @@
 package com.example.scratched.onboarding
 
+/**
+ * Represents the screens that are shown at each stage of onboarding process, starting with the
+ * "Welcome" screen and ending with the "Completed" screen
+ */
+
 sealed class OnboardingState {
     object WELCOME: OnboardingState()
     object ABOUT: OnboardingState()
@@ -10,21 +15,4 @@ sealed class OnboardingState {
     object COMPLETED: OnboardingState()
 
     data class FAILED(val errorMessage: String): OnboardingState()
-}
-
-sealed class OnboardingEvent {
-    data class RequestPermissions(val permissions: Array<String>): OnboardingEvent() {
-        override fun equals(other: Any?): Boolean {
-            if (this == other) return true
-            if (other !is RequestPermissions) return false
-            return permissions.contentEquals(other.permissions)
-        }
-
-        override fun hashCode(): Int {
-            return permissions.contentHashCode()
-        }
-    }
-
-    object NavigateToMainApp: OnboardingEvent()
-    data class ShowError(val message: String) : OnboardingEvent()
 }
