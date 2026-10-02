@@ -25,8 +25,8 @@ class OnboardingPrefsRepository(private val context: Context) : OnboardingStatus
         val isComplete = sharedPrefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
         val isFirstTime = !isComplete
 
-        Log.d(TAG, "isComplete = $isComplete")
-        Log.d(TAG, "isFirstTimeLaunch = $isFirstTime")
+        Log.d(TAG, "isComplete = $isComplete\nisFirstTimeLaunch = $isFirstTime")
+
         return isFirstTime
     }
 

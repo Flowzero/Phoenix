@@ -70,7 +70,7 @@ class OnboardingFlowCoordinator(
         }
 
         _currentState.value = determineInitStateFromMissingPermissions(missingRequiredPermissions)
-        Log.d(TAG, "Starting subsequent onboarding at state: $currentState")
+        Log.d(TAG, "Starting subsequent onboarding at state: ${_currentState.value}")
     }
 
     private fun determineInitStateFromMissingPermissions(missingPermissions: List<String>): OnboardingState {
@@ -100,15 +100,16 @@ class OnboardingFlowCoordinator(
             is OnboardingState.ALL_SET -> OnboardingState.COMPLETED
             is OnboardingState.COMPLETED -> OnboardingState.COMPLETED
             is OnboardingState.FAILED -> previousState // Stay on the error screen
+            is OnboardingState.RUQUIRED_PERMISSION_REJECTED -> getNextMissingState()
         }
 
         _currentState.value = newState
-        Log.d(TAG, "New state evaluated: $currentState")
+        Log.d(TAG, "New state evaluated: $newState")
 
         if (previousState != currentState) {
-            Log.d(TAG, "SUCCESS: Navigated from $previousState to $currentState")
+            Log.d(TAG, "SUCCESS: Navigated from $previousState to $newState")
         } else {
-            Log.w(TAG, "WARNING: State did not change! Stuck at $currentState")
+            Log.w(TAG, "WARNING: State did not change! Stuck at $newState")
         }
 
         if (newState == OnboardingState.COMPLETED && previousState != OnboardingState.COMPLETED) {
@@ -125,7 +126,7 @@ class OnboardingFlowCoordinator(
 
         val missingNotification = shouldShowNotificationPermission()
 
-        Log.d(TAG, "Checking missing permissions -> BT: $missingBluetooth, Loc: $missingLocation, Notif: $missingNotification")
+        Log.d(TAG, "Checking missing permissions\t-> BT: $missingBluetooth,\n\t->Loc: $missingLocation,\n\t->Notif: $missingNotification")
 
         return when {
             missingBluetooth -> OnboardingState.BLUETOOTH
@@ -136,7 +137,7 @@ class OnboardingFlowCoordinator(
     }
 
     fun requestCurrentStatePermissions() {
-        Log.d(TAG, "requestCurrentStatePermissions called for state: $currentState")
+        Log.d(TAG, "requestCurrentStatePermissions called for state: ${_currentState.value}")
 
         val permissionsToRequest = when (val state = _currentState.value) {
             is OnboardingState.BLUETOOTH -> {
@@ -158,7 +159,7 @@ class OnboardingFlowCoordinator(
             Log.d(TAG, "Requesting permissions: $permissionsToRequest")
             _events.tryEmit(OnboardingEvent.RequestPermissions(permissionsToRequest.toTypedArray()))
         } else {
-            Log.d(TAG, "No permissions to request for $currentState - moving to the next step")
+            Log.d(TAG, "No permissions to request for ${_currentState.value} - moving to the next step")
             navigateToNextStep()
         }
     }
@@ -177,6 +178,7 @@ class OnboardingFlowCoordinator(
             }
             else -> {
                 Log.w(TAG, "Critical permissions denied: $deniedCriticalPermissions")
+                _currentState.value = OnboardingState.RUQUIRED_PERMISSION_REJECTED
                 onOpenSettingsRequested()
             }
         }
@@ -189,12 +191,11 @@ class OnboardingFlowCoordinator(
     }
 
     fun onOpenSettingsRequested() {
-        _events.tryEmit(OnboardingEvent.ShowError("Open app setting and grant required permissions"))
+        _events.tryEmit(OnboardingEvent.ShowOpenAppScreen)
+        //_events.tryEmit(OnboardingEvent.ShowError("Open app setting and grant required permissions"))
     }
 
     private fun completeOnboarding() {
-        Log.d(TAG, "Completing onboarding")
-
         onboardingStatusRepository.markComplete()
         _currentState.value = OnboardingState.COMPLETED
 

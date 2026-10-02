@@ -1,5 +1,8 @@
 package com.example.scratched
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.scratched.UiEvent.*
@@ -43,6 +46,9 @@ class MainViewModel(
                         UiEvent.NavigateToMainApp
                     is OnboardingEvent.ShowError ->
                         ShowError(event.message)
+                    is OnboardingEvent.ShowOpenAppScreen -> {
+                        UiEvent.ShowOpenAppScreen
+                    }
 
                     is OnboardingEvent.EnableBluetooth -> TODO()
                 }
@@ -91,6 +97,7 @@ sealed interface UiEvent {
         }
         override fun hashCode(): Int = permissions.contentHashCode()
     }
+    object ShowOpenAppScreen: UiEvent
     data class EnableBluetooth(val intent: android.content.Intent) : UiEvent
     data class ShowError(val message: String) : UiEvent
     object NavigateToMainApp : UiEvent

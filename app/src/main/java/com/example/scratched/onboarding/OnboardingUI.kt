@@ -413,7 +413,8 @@ fun NotificationPermissionScreen(
 @Composable
 fun GrantPermissionsManually(
     modifier: Modifier = Modifier,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onCheck: () -> Unit
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -468,6 +469,25 @@ fun GrantPermissionsManually(
                 Spacer(modifier = Modifier.width(8.dp))
 
                 Text("Grant permissions manually")
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            OutlinedButton(
+                onClick = onCheck,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text("Check permissions")
             }
         }
     }

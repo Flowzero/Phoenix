@@ -9,6 +9,9 @@ sealed class OnboardingState {
     object WELCOME: OnboardingState()
     object ABOUT: OnboardingState()
     object BLUETOOTH: OnboardingState()
+
+    object RUQUIRED_PERMISSION_REJECTED: OnboardingState()
+
     object LOCATION: OnboardingState()
     object NOTIFICATION: OnboardingState()
     object ALL_SET: OnboardingState()

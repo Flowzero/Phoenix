@@ -1,7 +1,10 @@
 package com.example.scratched
 
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -22,6 +25,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.example.scratched.onboarding.AboutScreen
 import com.example.scratched.onboarding.AllSetScreen
 import com.example.scratched.onboarding.BluetoothPermissionScreen
+import com.example.scratched.onboarding.GrantPermissionsManually
 import com.example.scratched.onboarding.LocationPermissionScreen
 import com.example.scratched.onboarding.MainAppScreen
 import com.example.scratched.onboarding.NotificationPermissionScreen
@@ -73,11 +77,6 @@ class MainActivity : ComponentActivity() {
                 viewModel.onboardingState.collect { state ->
                     Log.d(TAG, "Onboarding state changed to: $state")
                 }
-            }
-        }
-
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiEvents.collect { event ->
                     handleUiEvent(event)
                 }
@@ -88,20 +87,28 @@ class MainActivity : ComponentActivity() {
     private fun handleUiEvent(event: UiEvent) {
         when (event) {
             is UiEvent.RequestPermissions -> {
-                Log.d("MainActivity", "Launching permission request for: ${event.permissions.toList()}")
+                Log.d(TAG, "Launching permission request for: ${event.permissions.toList()}")
                 permissionsLauncher.launch(event.permissions)
             }
             is UiEvent.NavigateToMainApp -> {
-                Log.d("MainActivity", "Onboarding completed")
+                Log.d(TAG, "Navigating to MainApp screen")
                 Toast.makeText(this, "Onboarding completed!", Toast.LENGTH_SHORT).show()
             }
             is UiEvent.ShowError -> {
-                Log.e("MainActivity", "Error: ${event.message}")
+                Log.e(TAG, "Error: ${event.message}")
                 Toast.makeText(this, event.message, Toast.LENGTH_LONG).show()
             }
-
+            is UiEvent.ShowOpenAppScreen -> TODO()
             is UiEvent.EnableBluetooth -> TODO()
         }
+    }
+
+    private fun onGrantPermissionsManuallyClicked(){
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(intent)
     }
 
     @Composable
@@ -121,10 +128,18 @@ class MainActivity : ComponentActivity() {
                 modifier = modifier,
                 onContinue = { viewModel.onRequestPermissionsClicked() }
             )
+
+            is OnboardingState.RUQUIRED_PERMISSION_REJECTED -> GrantPermissionsManually(
+                modifier = modifier,
+                onContinue = { onGrantPermissionsManuallyClicked() },
+                onCheck =  { viewModel.onNextClicked() }
+            )
+
             is OnboardingState.LOCATION -> LocationPermissionScreen(
                 modifier = modifier,
                 onContinue = { viewModel.onRequestPermissionsClicked() }
             )
+
             is OnboardingState.NOTIFICATION -> NotificationPermissionScreen(
                 modifier = modifier,
                 onContinue = { viewModel.onRequestPermissionsClicked() }
@@ -136,7 +151,7 @@ class MainActivity : ComponentActivity() {
             is OnboardingState.COMPLETED -> MainAppScreen(modifier = modifier)
             is OnboardingState.FAILED -> {
                 // FailedScreen(errorMessage = (onboardingState as OnboardingState.FAILED).errorMessage)
-                Log.e("MainActivity", "Onboarding failed: ${(onboardingState as OnboardingState.FAILED).errorMessage}")
+                Log.e(TAG, "Onboarding failed: ${(onboardingState as OnboardingState.FAILED).errorMessage}")
             }
         }
     }
