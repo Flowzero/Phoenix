@@ -151,7 +151,8 @@ class MainActivity : ComponentActivity() {
 
             is OnboardingState.NOTIFICATION -> NotificationPermissionScreen(
                 modifier = modifier,
-                onContinue = { viewModel.onRequestPermissionsClicked() }
+                onContinue = { viewModel.onRequestPermissionsClicked() },
+                onSkip =  { viewModel.onNextClicked() }
             )
             is OnboardingState.ALL_SET -> AllSetScreen(
                 modifier = modifier,

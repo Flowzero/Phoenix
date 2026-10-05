@@ -377,7 +377,8 @@ fun LocationPermissionScreen(
 @Composable
 fun NotificationPermissionScreen(
     modifier: Modifier = Modifier,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onSkip: () -> Unit
 ) {
     OnboardingLayout(
         modifier = modifier,
@@ -390,7 +391,7 @@ fun NotificationPermissionScreen(
         onContinue = onContinue,
         secondaryAction = {
             TextButton(
-                onClick = onContinue,
+                onClick = onSkip,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
