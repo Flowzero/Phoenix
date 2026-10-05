@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
+        Log.d(TAG, "Result captured: $result")
         viewModel.onPermissionsResult(result)
     }
 
@@ -66,7 +67,9 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     OnboardingFlowScreen(
                         viewModel = viewModel,
-                        modifier = Modifier.fillMaxSize().padding(innerPadding)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
                     )
                 }
             }
@@ -77,6 +80,10 @@ class MainActivity : ComponentActivity() {
                 viewModel.onboardingState.collect { state ->
                     Log.d(TAG, "Onboarding state changed to: $state")
                 }
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiEvents.collect { event ->
                     handleUiEvent(event)
                 }
@@ -98,8 +105,10 @@ class MainActivity : ComponentActivity() {
                 Log.e(TAG, "Error: ${event.message}")
                 Toast.makeText(this, event.message, Toast.LENGTH_LONG).show()
             }
-            is UiEvent.ShowOpenAppScreen -> TODO()
-            is UiEvent.EnableBluetooth -> TODO()
+            is UiEvent.ShowOpenAppScreen -> {
+                Log.d(TAG, "Opening app settings to manually allow permissions")
+            }
+            is UiEvent.EnableBluetooth -> TODO() // Will crash the app since not implemented yet
         }
     }
 

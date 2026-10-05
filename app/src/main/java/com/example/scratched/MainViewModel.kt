@@ -3,6 +3,7 @@ package com.example.scratched
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.scratched.UiEvent.*
@@ -26,6 +27,9 @@ class MainViewModel(
     //private val bluetoothStatusManager: AndroidBluetoothStatusManager,
     private val onboardingFlowCoordinator: OnboardingFlowCoordinator
 ) : ViewModel() {
+    companion object {
+        const val TAG = "MainViewModel"
+    }
 
 
     val onboardingState: StateFlow<OnboardingState> = onboardingFlowCoordinator.currentState
@@ -40,8 +44,10 @@ class MainViewModel(
         viewModelScope.launch {
             onboardingFlowCoordinator.events.collect { event ->
                 val uiEvent = when (event) {
-                    is OnboardingEvent.RequestPermissions ->
+                    is OnboardingEvent.RequestPermissions -> {
+                        Log.d(TAG, "Requesting current permissions")
                         RequestPermissions(event.permissions)
+                    }
                     is OnboardingEvent.NavigateToMainApp ->
                         UiEvent.NavigateToMainApp
                     is OnboardingEvent.ShowError ->
