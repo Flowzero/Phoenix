@@ -1,10 +1,8 @@
 package com.example.scratched.onboarding
 
-import android.content.Intent
-
 /**
- * Onboarding event is a one time command to UI, such as requesting specific permissions, navigating
- * to the main app screen or showing an error.
+ * Onboarding event is a one time command to Activity, such as requesting specific permissions,
+ * passing request to open app settings or showing an error.
  */
 
 sealed interface OnboardingEvent {
@@ -16,8 +14,7 @@ sealed interface OnboardingEvent {
         }
         override fun hashCode(): Int = permissions.contentHashCode()
     }
-    object ShowOpenAppScreen: OnboardingEvent
-    data class EnableBluetooth(val intent: android.content.Intent) : OnboardingEvent
-    data class ShowError(val message: String) : OnboardingEvent
-    object NavigateToMainApp : OnboardingEvent
+    object RequestToOpenAppSettings: OnboardingEvent
+    object RequestToEnableBluetooth: OnboardingEvent
+    data class ShowError(val message: String): OnboardingEvent
 }

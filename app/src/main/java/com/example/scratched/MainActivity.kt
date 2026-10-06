@@ -31,7 +31,6 @@ import com.example.scratched.onboarding.MainAppScreen
 import com.example.scratched.onboarding.NotificationPermissionScreen
 import com.example.scratched.onboarding.OnboardingState
 import com.example.scratched.onboarding.OnboardingPrefsRepository
-import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.WelcomeScreen
 import com.example.scratched.ui.theme.ScratchedTheme
 import com.example.scratched.utilities.PermissionsManager
@@ -78,37 +77,33 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.onboardingState.collect { state ->
-                    Log.d(TAG, "Onboarding state changed to: $state")
+                    Log.d(TAG, "Onboarding state changed to: ${state.toString()}")
                 }
             }
         }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiEvents.collect { event ->
-                    handleUiEvent(event)
+                viewModel.activityEvents.collect { event ->
+                    handleActivityEvent(event)
                 }
             }
         }
     }
 
-    private fun handleUiEvent(event: UiEvent) {
+    private fun handleActivityEvent(event: ActivityEvent) {
         when (event) {
-            is UiEvent.RequestPermissions -> {
+            is ActivityEvent.RequestPermissions -> {
                 Log.d(TAG, "Launching permission request for: ${event.permissions.toList()}")
                 permissionsLauncher.launch(event.permissions)
             }
-            is UiEvent.NavigateToMainApp -> {
-                Log.d(TAG, "Navigating to MainApp screen")
-                Toast.makeText(this, "Onboarding completed!", Toast.LENGTH_SHORT).show()
-            }
-            is UiEvent.ShowError -> {
+            is ActivityEvent.ShowError -> {
                 Log.e(TAG, "Error: ${event.message}")
                 Toast.makeText(this, event.message, Toast.LENGTH_LONG).show()
             }
-            is UiEvent.ShowOpenAppScreen -> {
+            is ActivityEvent.ShowOpenAppScreen -> {
                 Log.d(TAG, "Opening app settings to manually allow permissions")
             }
-            is UiEvent.EnableBluetooth -> TODO() // Will crash the app since not implemented yet
+            is ActivityEvent.EnableBluetooth -> TODO() // Will crash the app since not implemented yet
         }
     }
 

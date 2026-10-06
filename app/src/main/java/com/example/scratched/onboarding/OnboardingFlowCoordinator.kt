@@ -36,7 +36,7 @@ class OnboardingFlowCoordinator(
     // accessible from ViewModel
     val currentState: StateFlow<OnboardingState> = _currentState.asStateFlow()
 
-    // one time UI events (e.g. show Enable Bluetooth dialog)
+    // one time Activity events (e.g. request permissions)
     private val _events = MutableSharedFlow<OnboardingEvent>(
         extraBufferCapacity = 10,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -46,7 +46,9 @@ class OnboardingFlowCoordinator(
 
 
     fun startAppFlow() {
-        Log.d(TAG, "Starting App Flow. isFirstTimeLaunch=$isFirstTimeLaunch")
+        Log.d(TAG, "Starting the onboarding flow: " +
+                if (isFirstTimeLaunch) "First time launch" else "Subsequent launch"
+        )
 
         if (isFirstTimeLaunch) {
             startFirstTimeOnboarding()
@@ -126,7 +128,10 @@ class OnboardingFlowCoordinator(
 
         val missingNotification = shouldShowNotificationPermission()
 
-        Log.d(TAG, "Checking missing permissions\t-> BT: $missingBluetooth,\n\t->Loc: $missingLocation,\n\t->Notif: $missingNotification")
+        Log.d(TAG, "Checking missing permissions +" +
+                "\n\t-> BT: $missingBluetooth," +
+                "\n\t->Loc: $missingLocation," +
+                "\n\t->Notif: $missingNotification")
 
         return when {
             missingBluetooth -> OnboardingState.BLUETOOTH
@@ -191,8 +196,7 @@ class OnboardingFlowCoordinator(
     }
 
     fun onOpenSettingsRequested() {
-        _events.tryEmit(OnboardingEvent.ShowOpenAppScreen)
-        //_events.tryEmit(OnboardingEvent.ShowError("Open app setting and grant required permissions"))
+        _events.tryEmit(OnboardingEvent.RequestToOpenAppSettings)
     }
 
     private fun completeOnboarding() {
@@ -200,6 +204,5 @@ class OnboardingFlowCoordinator(
         _currentState.value = OnboardingState.COMPLETED
 
         Log.d(TAG, "Onboarding completed, navigating to main app screen")
-        _events.tryEmit((OnboardingEvent.NavigateToMainApp))
     }
 }
