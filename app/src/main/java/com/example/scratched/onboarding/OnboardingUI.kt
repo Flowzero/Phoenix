@@ -1,6 +1,8 @@
 package com.example.scratched.onboarding
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
@@ -60,19 +62,51 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+
 private val ScreenHorizontalPadding = 24.dp
 private val ContentMaxWidth = 520.dp
+
+private val ProgressAreaHeight = 70.dp
+private val ProgressBarHeight = 54.dp
 
 private enum class OnboardingStep(
     val number: Int,
     val total: Int
 ) {
-    Welcome(number = 1, total = 6),
-    About(number = 2, total = 6),
-    Bluetooth(number = 3, total = 6),
-    Location(number = 4, total = 6),
-    Notifications(number = 5, total = 6),
-    AllSet(number = 6, total = 6)
+    Welcome(
+        number = 1,
+        total = 6
+    ),
+
+    About(
+        number = 2,
+        total = 6
+    ),
+
+    Bluetooth(
+        number = 3,
+        total = 6
+    ),
+
+    Location(
+        number = 4,
+        total = 6
+    ),
+
+    Notifications(
+        number = 5,
+        total = 6
+    ),
+
+    AllSet(
+        number = 6,
+        total = 6
+    )
 }
 
 @Composable
@@ -88,8 +122,10 @@ private fun OnboardingLayout(
     secondaryAction: (@Composable () -> Unit)? = null,
     content: (@Composable ColumnScope.() -> Unit)? = null
 ) {
-    // Триггер для запуска анимации при появлении экрана
-    var isVisible by remember { mutableStateOf(false) }
+    var isVisible by remember {
+        mutableStateOf(false)
+    }
+
     LaunchedEffect(Unit) {
         isVisible = true
     }
@@ -104,105 +140,171 @@ private fun OnboardingLayout(
                 .safeDrawingPadding()
                 .navigationBarsPadding()
                 .padding(horizontal = ScreenHorizontalPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
+            /*
+             * Фиксированная верхняя область.
+             *
+             * ProgressBar больше не центрируется вместе с динамическим
+             * содержимым и не перемещается после запуска анимаций.
+             */
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .wrapContentHeight()
-                    .width(ContentMaxWidth),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .height(ProgressAreaHeight),
+                contentAlignment = Alignment.TopCenter
             ) {
-                // 1. Анимация прогресс-бара (появляется сверху)
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(animationSpec = tween(400)) + slideInVertically(
-                        animationSpec = tween(400),
-                        initialOffsetY = { -20 }
-                    )
+                OnboardingProgress(
+                    step = step
+                )
+            }
+
+            /*
+             * Только эта область центрируется.
+             *
+             * Появление иконки, текста и кнопок больше не влияет
+             * на позицию ProgressBar.
+             */
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .width(ContentMaxWidth),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    OnboardingProgress(step = step)
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // 2. Анимация иконки (плавное появление с легким увеличением)
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(animationSpec = tween(500, delayMillis = 100)) +
-                            scaleIn(animationSpec = tween(500, delayMillis = 100), initialScale = 0.85f)
-                ) {
-                    IconBadge(icon = icon, tint = iconTint)
-                }
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                // 3. Анимация текста и контента (мягкое выплывание снизу)
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(animationSpec = tween(500, delayMillis = 200)) +
-                            slideInVertically(animationSpec = tween(500, delayMillis = 200), initialOffsetY = { 20 })
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Text(
-                            text = description,
-                            style = MaterialTheme.typography.bodyLarge,
-                            lineHeight = 25.sp,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        if (content != null) {
-                            Spacer(modifier = Modifier.height(24.dp))
-                            content()
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // 4. Анимация кнопок (появляются в последнюю очередь)
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(animationSpec = tween(500, delayMillis = 300)) +
-                            slideInVertically(animationSpec = tween(500, delayMillis = 300), initialOffsetY = { 20 })
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Button(
-                            onClick = onContinue,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        enter = fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                delayMillis = 100
                             )
+                        ) + scaleIn(
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                delayMillis = 100
+                            ),
+                            initialScale = 0.85f
+                        )
+                    ) {
+                        IconBadge(
+                            icon = icon,
+                            tint = iconTint
+                        )
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(28.dp)
+                    )
+
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        enter = fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                delayMillis = 200
+                            )
+                        ) + slideInVertically(
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                delayMillis = 200
+                            ),
+                            initialOffsetY = { 20 }
+                        )
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = actionText,
-                                style = MaterialTheme.typography.labelLarge
+                                text = title,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onBackground
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = null
-                            )
-                        }
 
-                        if (secondaryAction != null) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            secondaryAction()
+                            Spacer(
+                                modifier = Modifier.height(14.dp)
+                            )
+
+                            Text(
+                                text = description,
+                                style = MaterialTheme.typography.bodyLarge,
+                                lineHeight = 25.sp,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            if (content != null) {
+                                Spacer(
+                                    modifier = Modifier.height(24.dp)
+                                )
+
+                                content()
+                            }
+                        }
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(32.dp)
+                    )
+
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        enter = fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                delayMillis = 300
+                            )
+                        ) + slideInVertically(
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                delayMillis = 300
+                            ),
+                            initialOffsetY = { 20 }
+                        )
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Button(
+                                onClick = onContinue,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Text(
+                                    text = actionText,
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+
+                                Spacer(
+                                    modifier = Modifier.width(8.dp)
+                                )
+
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = null
+                                )
+                            }
+
+                            if (secondaryAction != null) {
+                                Spacer(
+                                    modifier = Modifier.height(8.dp)
+                                )
+
+                                secondaryAction()
+                            }
                         }
                     }
                 }
@@ -212,8 +314,38 @@ private fun OnboardingLayout(
 }
 
 @Composable
-private fun OnboardingProgress(step: OnboardingStep) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+private fun OnboardingProgress(
+    step: OnboardingStep
+) {
+    val targetFraction = (
+            step.number.toFloat() / step.total.toFloat()
+            ).coerceIn(0f, 1f)
+
+    val previousFraction = (
+            (step.number - 1).toFloat() / step.total.toFloat()
+            ).coerceIn(0f, 1f)
+
+    val progress = remember(step) {
+        Animatable(
+            initialValue = previousFraction
+        )
+    }
+
+    LaunchedEffect(step) {
+        progress.animateTo(
+            targetValue = targetFraction,
+            animationSpec = tween(
+                durationMillis = 600,
+                easing = FastOutSlowInEasing
+            )
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(ProgressBarHeight)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -226,13 +358,18 @@ private fun OnboardingProgress(step: OnboardingStep) {
                 color = MaterialTheme.colorScheme.primary,
                 letterSpacing = 1.5.sp
             )
+
             Text(
                 text = "${step.number} of ${step.total}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Spacer(modifier = Modifier.height(10.dp))
+
+        Spacer(
+            modifier = Modifier.height(10.dp)
+        )
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -242,7 +379,7 @@ private fun OnboardingProgress(step: OnboardingStep) {
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(step.number.toFloat() / step.total.toFloat())
+                    .fillMaxWidth(progress.value)
                     .height(6.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary)
@@ -252,7 +389,10 @@ private fun OnboardingProgress(step: OnboardingStep) {
 }
 
 @Composable
-private fun IconBadge(icon: ImageVector, tint: Color = MaterialTheme.colorScheme.primary) {
+private fun IconBadge(
+    icon: ImageVector,
+    tint: Color = MaterialTheme.colorScheme.primary
+) {
     Box(
         modifier = Modifier
             .size(104.dp)
@@ -270,11 +410,17 @@ private fun IconBadge(icon: ImageVector, tint: Color = MaterialTheme.colorScheme
 }
 
 @Composable
-private fun InfoCard(icon: ImageVector, title: String, description: String) {
+private fun InfoCard(
+    icon: ImageVector,
+    title: String,
+    description: String
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -294,14 +440,22 @@ private fun InfoCard(icon: ImageVector, title: String, description: String) {
                     tint = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
-            Spacer(modifier = Modifier.width(14.dp))
+
+            Spacer(
+                modifier = Modifier.width(14.dp)
+            )
+
             Column {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
-                Spacer(modifier = Modifier.height(3.dp))
+
+                Spacer(
+                    modifier = Modifier.height(3.dp)
+                )
+
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
@@ -317,7 +471,10 @@ private fun InfoCard(icon: ImageVector, title: String, description: String) {
 // ==========================================
 
 @Composable
-fun WelcomeScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
+fun WelcomeScreen(
+    modifier: Modifier = Modifier,
+    onContinue: () -> Unit
+) {
     OnboardingLayout(
         modifier = modifier,
         step = OnboardingStep.Welcome,
@@ -330,7 +487,10 @@ fun WelcomeScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
 }
 
 @Composable
-fun AboutScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
+fun AboutScreen(
+    modifier: Modifier = Modifier,
+    onContinue: () -> Unit
+) {
     OnboardingLayout(
         modifier = modifier,
         step = OnboardingStep.About,
@@ -350,7 +510,10 @@ fun AboutScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
 }
 
 @Composable
-fun BluetoothPermissionScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
+fun BluetoothPermissionScreen(
+    modifier: Modifier = Modifier,
+    onContinue: () -> Unit
+) {
     OnboardingLayout(
         modifier = modifier,
         step = OnboardingStep.Bluetooth,
@@ -370,7 +533,6 @@ fun BluetoothPermissionScreen(modifier: Modifier = Modifier, onContinue: () -> U
     )
 }
 
-// ✅ НОВЫЙ ЭКРАН: Включение Bluetooth
 @Composable
 fun EnableBluetoothScreen(
     modifier: Modifier = Modifier,
@@ -378,10 +540,9 @@ fun EnableBluetoothScreen(
 ) {
     OnboardingLayout(
         modifier = modifier,
-        // Используем шаг Bluetooth, чтобы прогресс-бар не прыгал
         step = OnboardingStep.Bluetooth,
         icon = Icons.Default.Bluetooth,
-        iconTint = Color(0xFFE65100), // Оранжевый акцент, привлекающий внимание к действию
+        iconTint = Color(0xFFE65100),
         title = "Bluetooth is turned off",
         description = "To discover and connect to nearby devices, Bluetooth must be enabled on your device.",
         actionText = "Turn on Bluetooth",
@@ -397,7 +558,10 @@ fun EnableBluetoothScreen(
 }
 
 @Composable
-fun LocationPermissionScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
+fun LocationPermissionScreen(
+    modifier: Modifier = Modifier,
+    onContinue: () -> Unit
+) {
     OnboardingLayout(
         modifier = modifier,
         step = OnboardingStep.Location,
@@ -433,7 +597,10 @@ fun NotificationPermissionScreen(
         actionText = "Allow notifications",
         onContinue = onContinue,
         secondaryAction = {
-            TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+            TextButton(
+                onClick = onSkip,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(
                     text = "Skip for now",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -457,8 +624,13 @@ fun GrantPermissionsManually(
     onContinue: () -> Unit,
     onCheck: () -> Unit
 ) {
-    var isVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { isVisible = true }
+    var isVisible by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -482,25 +654,52 @@ fun GrantPermissionsManually(
             ) {
                 AnimatedVisibility(
                     visible = isVisible,
-                    enter = fadeIn(tween(500)) + scaleIn(tween(500), initialScale = 0.85f)
+                    enter = fadeIn(
+                        animationSpec = tween(500)
+                    ) + scaleIn(
+                        animationSpec = tween(500),
+                        initialScale = 0.85f
+                    )
                 ) {
-                    IconBadge(icon = Icons.Default.Security, tint = MaterialTheme.colorScheme.error)
+                    IconBadge(
+                        icon = Icons.Default.Security,
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(
+                    modifier = Modifier.height(28.dp)
+                )
 
                 AnimatedVisibility(
                     visible = isVisible,
-                    enter = fadeIn(tween(500, delayMillis = 100)) + slideInVertically(tween(500, delayMillis = 100), initialOffsetY = { 20 })
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 500,
+                            delayMillis = 100
+                        )
+                    ) + slideInVertically(
+                        animationSpec = tween(
+                            durationMillis = 500,
+                            delayMillis = 100
+                        ),
+                        initialOffsetY = { 20 }
+                    )
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text(
                             text = "Permission setup",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center
                         )
-                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Spacer(
+                            modifier = Modifier.height(14.dp)
+                        )
+
                         Text(
                             text = "Some permissions could not be granted automatically. You can open the system settings and grant them manually.",
                             style = MaterialTheme.typography.bodyLarge,
@@ -511,33 +710,72 @@ fun GrantPermissionsManually(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(
+                    modifier = Modifier.height(32.dp)
+                )
 
                 AnimatedVisibility(
                     visible = isVisible,
-                    enter = fadeIn(tween(500, delayMillis = 200)) + slideInVertically(tween(500, delayMillis = 200), initialOffsetY = { 20 })
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 500,
+                            delayMillis = 200
+                        )
+                    ) + slideInVertically(
+                        animationSpec = tween(
+                            durationMillis = 500,
+                            delayMillis = 200
+                        ),
+                        initialOffsetY = { 20 }
+                    )
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         OutlinedButton(
                             onClick = onContinue,
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
                             shape = RoundedCornerShape(18.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Security, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Grant permissions manually")
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null
+                            )
+
+                            Spacer(
+                                modifier = Modifier.width(8.dp)
+                            )
+
+                            Text(
+                                text = "Grant permissions manually"
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(32.dp))
+                        Spacer(
+                            modifier = Modifier.height(32.dp)
+                        )
 
                         OutlinedButton(
                             onClick = onCheck,
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
                             shape = RoundedCornerShape(18.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Check, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Check permissions")
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null
+                            )
+
+                            Spacer(
+                                modifier = Modifier.width(8.dp)
+                            )
+
+                            Text(
+                                text = "Check permissions"
+                            )
                         }
                     }
                 }
@@ -547,7 +785,10 @@ fun GrantPermissionsManually(
 }
 
 @Composable
-fun AllSetScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
+fun AllSetScreen(
+    modifier: Modifier = Modifier,
+    onContinue: () -> Unit
+) {
     OnboardingLayout(
         modifier = modifier,
         step = OnboardingStep.AllSet,
@@ -561,7 +802,9 @@ fun AllSetScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             ) {
                 Row(
                     modifier = Modifier.padding(18.dp),
@@ -572,7 +815,11 @@ fun AllSetScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Spacer(
+                        modifier = Modifier.width(12.dp)
+                    )
+
                     Text(
                         text = "All required permissions are ready.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -585,9 +832,16 @@ fun AllSetScreen(modifier: Modifier = Modifier, onContinue: () -> Unit) {
 }
 
 @Composable
-fun MainAppScreen(modifier: Modifier) {
-    var isVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { isVisible = true }
+fun MainAppScreen(
+    modifier: Modifier
+) {
+    var isVisible by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -603,17 +857,34 @@ fun MainAppScreen(modifier: Modifier) {
         ) {
             AnimatedVisibility(
                 visible = isVisible,
-                enter = fadeIn(tween(600)) + scaleIn(tween(600), initialScale = 0.8f)
+                enter = fadeIn(
+                    animationSpec = tween(600)
+                ) + scaleIn(
+                    animationSpec = tween(600),
+                    initialScale = 0.8f
+                )
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconBadge(icon = Icons.Default.PhoneAndroid)
-                    Spacer(modifier = Modifier.height(24.dp))
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    IconBadge(
+                        icon = Icons.Default.PhoneAndroid
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(24.dp)
+                    )
+
                     Text(
                         text = "Main app screen",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
                     Text(
                         text = "Your connected devices will appear here.",
                         style = MaterialTheme.typography.bodyLarge,
