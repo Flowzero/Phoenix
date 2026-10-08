@@ -3,6 +3,8 @@ package com.example.scratched.onboarding
 import android.Manifest
 import android.os.Build
 import android.util.Log
+
+import com.example.scratched.mesh.BluetoothStateManager
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -16,15 +18,18 @@ import kotlinx.coroutines.flow.StateFlow
  * Central coordinator (State Machine) responsible for managing the application's onboarding flow
  *
  * OnboardingFlowCoordinator responsible for:
- * * Determining the correct onboarding screen to display based on the current permission state
+ * * Determining the correct onboarding screen to display based on the current permission and
+ * enabled/disabled bluetooth state
  * * Marking the onboarding process as complete in persistent storage
  *
  * @property permissionsManager
+ * @property bluetoothStateManager
  * @property onboardingStatusRepository
  */
 
 class OnboardingFlowCoordinator(
     private val permissionsManager: PermissionsManager,
+    private val bluetoothStateManager: BluetoothStateManager,
     private val onboardingStatusRepository: OnboardingStatusRepository,
 ) {
     companion object {
@@ -43,7 +48,6 @@ class OnboardingFlowCoordinator(
     )
     // accessible from ViewModel
     val events: SharedFlow<OnboardingEvent> = _events.asSharedFlow()
-
 
     fun startAppFlow() {
         Log.d(TAG, "Starting the onboarding flow: " +
@@ -65,17 +69,17 @@ class OnboardingFlowCoordinator(
         val missingRequiredPermissions = permissionsManager.getMissingRequiredPermissions()
         Log.d(TAG, "Missing required permissions: $missingRequiredPermissions")
 
-        if (missingRequiredPermissions.isEmpty()) {
-            Log.d(TAG, "All required permissions are granted")
+        if (missingRequiredPermissions.isEmpty() && bluetoothStateManager.isEnabled()) {
+            Log.d(TAG, "All required permissions are granted and Bluetooth is enabled")
             completeOnboarding()
             return
         }
 
-        _currentState.value = determineInitStateFromMissingPermissions(missingRequiredPermissions)
+        _currentState.value = determineInitState(missingRequiredPermissions)
         Log.d(TAG, "Starting subsequent onboarding at state: ${_currentState.value}")
     }
 
-    private fun determineInitStateFromMissingPermissions(missingPermissions: List<String>): OnboardingState {
+    private fun determineInitState(missingPermissions: List<String>): OnboardingState {
         val bluetoothPermissions = permissionsManager.getBluetoothPermissions()
         val locationPermissions = permissionsManager.getLocationPermissions()
 
@@ -84,6 +88,7 @@ class OnboardingFlowCoordinator(
 
         return when {
             hasMissingBluetooth -> OnboardingState.BLUETOOTH
+            !bluetoothStateManager.isEnabled() -> OnboardingState.ENABLE_BLUETOOTH
             hasMissingLocation -> OnboardingState.LOCATION
             else -> OnboardingState.COMPLETED
         }
@@ -97,6 +102,7 @@ class OnboardingFlowCoordinator(
             is OnboardingState.WELCOME -> OnboardingState.ABOUT
             is OnboardingState.ABOUT -> getNextMissingState()
             is OnboardingState.BLUETOOTH -> getNextMissingState()
+            is OnboardingState.ENABLE_BLUETOOTH -> getNextMissingState()
             is OnboardingState.LOCATION -> getNextMissingState()
             is OnboardingState.NOTIFICATION -> OnboardingState.ALL_SET
             is OnboardingState.ALL_SET -> OnboardingState.COMPLETED
@@ -127,17 +133,26 @@ class OnboardingFlowCoordinator(
             .any { !permissionsManager.isPermissionGranted(it) }
 
         val missingNotification = shouldShowNotificationPermission()
+        val showAllSet = isFirstTimeLaunch
 
         Log.d(TAG, "Checking missing permissions +" +
                 "\n\t-> BT: $missingBluetooth," +
                 "\n\t->Loc: $missingLocation," +
                 "\n\t->Notif: $missingNotification")
 
+        val isBluetoothEnabled = bluetoothStateManager.isEnabled()
+
+
         return when {
             missingBluetooth -> OnboardingState.BLUETOOTH
+
+            // if Bluetooth permission is granted but Bluetooth not enabled yet
+            !missingBluetooth && !isBluetoothEnabled -> OnboardingState.ENABLE_BLUETOOTH
+
             missingLocation -> OnboardingState.LOCATION
             missingNotification -> OnboardingState.NOTIFICATION
-            else -> OnboardingState.ALL_SET
+            showAllSet -> OnboardingState.ALL_SET
+            else -> OnboardingState.COMPLETED
         }
     }
 
@@ -162,7 +177,11 @@ class OnboardingFlowCoordinator(
 
         if (permissionsToRequest.isNotEmpty()) {
             Log.d(TAG, "Requesting permissions: $permissionsToRequest")
-            _events.tryEmit(OnboardingEvent.RequestPermissions(permissionsToRequest.toTypedArray()))
+            _events.tryEmit(
+                OnboardingEvent.RequestToRequestPermissions(
+                    permissionsToRequest.toTypedArray()
+                )
+            )
         } else {
             Log.d(TAG, "No permissions to request for ${_currentState.value} - moving to the next step")
             navigateToNextStep()
@@ -184,7 +203,6 @@ class OnboardingFlowCoordinator(
             else -> {
                 Log.w(TAG, "Critical permissions denied: $deniedCriticalPermissions")
                 _currentState.value = OnboardingState.RUQUIRED_PERMISSION_REJECTED
-                onOpenSettingsRequested()
             }
         }
     }
@@ -193,10 +211,6 @@ class OnboardingFlowCoordinator(
         return isFirstTimeLaunch &&
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 !permissionsManager.isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS)
-    }
-
-    fun onOpenSettingsRequested() {
-        _events.tryEmit(OnboardingEvent.RequestToOpenAppSettings)
     }
 
     private fun completeOnboarding() {

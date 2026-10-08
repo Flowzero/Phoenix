@@ -22,9 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.example.scratched.mesh.BluetoothStateManager
+import com.example.scratched.mesh.UsableBluetoothAdapter
 import com.example.scratched.onboarding.AboutScreen
 import com.example.scratched.onboarding.AllSetScreen
 import com.example.scratched.onboarding.BluetoothPermissionScreen
+import com.example.scratched.onboarding.EnableBluetoothScreen
 import com.example.scratched.onboarding.GrantPermissionsManually
 import com.example.scratched.onboarding.LocationPermissionScreen
 import com.example.scratched.onboarding.MainAppScreen
@@ -46,6 +49,7 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by this.viewModels {
         MainViewModelFactory(
             permissionsManager = PermissionsManager(this),
+            bluetoothStateManager = BluetoothStateManager(UsableBluetoothAdapter(this)),
             repository = OnboardingPrefsRepository(this)
         )
     }
@@ -55,6 +59,13 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         Log.d(TAG, "Result captured: $result")
         viewModel.onPermissionsResult(result)
+    }
+
+    private val enableBluetoothLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val isSuccess = (result.resultCode == RESULT_OK)
+        viewModel.onBluetoothEnableResult(isSuccess)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,18 +107,17 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "Launching permission request for: ${event.permissions.toList()}")
                 permissionsLauncher.launch(event.permissions)
             }
+            is ActivityEvent.EnableBluetooth -> {
+                enableBluetoothLauncher.launch(event.intent)
+            }
             is ActivityEvent.ShowError -> {
                 Log.e(TAG, "Error: ${event.message}")
                 Toast.makeText(this, event.message, Toast.LENGTH_LONG).show()
             }
-            is ActivityEvent.ShowOpenAppScreen -> {
-                Log.d(TAG, "Opening app settings to manually allow permissions")
-            }
-            is ActivityEvent.EnableBluetooth -> TODO() // Will crash the app since not implemented yet
         }
     }
 
-    private fun onGrantPermissionsManuallyClicked(){
+    private fun onGrantPermissionsManuallyClicked() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.fromParts("package", packageName, null)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -137,6 +147,11 @@ class MainActivity : ComponentActivity() {
                 modifier = modifier,
                 onContinue = { onGrantPermissionsManuallyClicked() },
                 onCheck =  { viewModel.onNextClicked() }
+            )
+
+            is OnboardingState.ENABLE_BLUETOOTH -> EnableBluetoothScreen(
+                modifier = modifier,
+                onContinue = { viewModel.onEnableBluetoothClicked() }
             )
 
             is OnboardingState.LOCATION -> LocationPermissionScreen(

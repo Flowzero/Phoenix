@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * Interface of BluetoothAdapter that allows to achieve better testability since separating
  * Android specific code
  */
+
 interface BluetoothAdapterWrapper {
     fun isSupported(): Boolean
     fun isEnabled(): Boolean

@@ -1,8 +1,11 @@
 package com.example.scratched
 
+
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.scratched.mesh.BluetoothStateManager
+import com.example.scratched.mesh.UsableBluetoothAdapter
 import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
 import com.example.scratched.onboarding.OnboardingState
@@ -13,20 +16,21 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 
-
-
 class MainViewModel(
-    //private val bluetoothStatusManager: AndroidBluetoothStatusManager,
-    private val onboardingFlowCoordinator: OnboardingFlowCoordinator
+    private val onboardingFlowCoordinator: OnboardingFlowCoordinator,
+    private val bluetoothStatusManager: BluetoothStateManager,
 ) : ViewModel() {
     companion object {
         const val TAG = "MainViewModel"
     }
 
+    // accessible  from Activity
     val onboardingState: StateFlow<OnboardingState> = onboardingFlowCoordinator.currentState
     //val bluetoothState: StateFlow<BluetoothState> = bluetoothStatusManager.currentState
 
     private val _activityEvents = MutableSharedFlow<ActivityEvent>()
+
+    // accessible from Activity
     val activityEvents: SharedFlow<ActivityEvent> = _activityEvents.asSharedFlow()
 
     init {
@@ -35,18 +39,13 @@ class MainViewModel(
         viewModelScope.launch {
             onboardingFlowCoordinator.events.collect { event ->
                 val activityEvent = when (event) {
-                    is OnboardingEvent.RequestPermissions -> {
+                    is OnboardingEvent.RequestToRequestPermissions -> {
                         Log.d(TAG, "Requesting current permissions")
                         ActivityEvent.RequestPermissions(event.permissions)
                     }
-                    is OnboardingEvent.ShowError -> {
+                    is OnboardingEvent.RequestToShowError -> {
                         ActivityEvent.ShowError(event.message)
                     }
-                    is OnboardingEvent.RequestToOpenAppSettings -> {
-                        ActivityEvent.ShowOpenAppScreen
-                    }
-
-                    is OnboardingEvent.RequestToEnableBluetooth -> TODO()
                 }
                 _activityEvents.emit(activityEvent)
             }
@@ -68,18 +67,28 @@ class MainViewModel(
         onboardingFlowCoordinator.onHandlePermissionsResult(result)
     }
 
-}
-
-sealed interface ActivityEvent {
-    data class RequestPermissions(val permissions: Array<String>) : ActivityEvent {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (other !is RequestPermissions) return false
-            return permissions.contentEquals(other.permissions)
+    fun onBluetoothEnableResult(isSuccess: Boolean) {
+        if (!isSuccess) {
+            viewModelScope.launch {
+                _activityEvents.emit(
+                    ActivityEvent.ShowError("User declined/Error happened: Bluetooth is required")
+                )
+            }
+        } else {
+            onboardingFlowCoordinator.navigateToNextStep()
         }
-        override fun hashCode(): Int = permissions.contentHashCode()
     }
-    object ShowOpenAppScreen: ActivityEvent
-    data class EnableBluetooth(val intent: android.content.Intent) : ActivityEvent
-    data class ShowError(val message: String) : ActivityEvent
+
+    fun onEnableBluetoothClicked() {
+        viewModelScope.launch {
+            val intent = bluetoothStatusManager.getEnableBluetoothIntent()
+            if (intent != null) {
+                Log.d(TAG, "Emitting EnableBluetooth event")
+                _activityEvents.emit(ActivityEvent.EnableBluetooth(intent))
+            } else {
+                Log.e(TAG, "Cannot get EnableBluetooth event")
+                _activityEvents.emit(ActivityEvent.ShowError("Unable to request EnableBluetooth"))
+            }
+        }
+    }
 }
