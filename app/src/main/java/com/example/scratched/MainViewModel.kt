@@ -4,8 +4,8 @@ package com.example.scratched
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.scratched.mesh.BluetoothStateManager
-import com.example.scratched.mesh.UsableBluetoothAdapter
+import com.example.scratched.mesh.stateManagers.BluetoothStateManager
+import com.example.scratched.mesh.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
 import com.example.scratched.onboarding.OnboardingState
@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 class MainViewModel(
     private val onboardingFlowCoordinator: OnboardingFlowCoordinator,
     private val bluetoothStatusManager: BluetoothStateManager,
+    private val locationStateManager: LocationStateManager
 ) : ViewModel() {
     companion object {
         const val TAG = "MainViewModel"
@@ -88,6 +89,31 @@ class MainViewModel(
             } else {
                 Log.e(TAG, "Cannot get EnableBluetooth event")
                 _activityEvents.emit(ActivityEvent.ShowError("Unable to request EnableBluetooth"))
+            }
+        }
+    }
+
+    fun onEnableLocationClicked() {
+        viewModelScope.launch {
+            val intent = locationStateManager.getEnableLocationIntent()
+            if (intent != null) {
+                Log.d(TAG, "Emitting EnableLocation event")
+                _activityEvents.emit(ActivityEvent.EnableLocation(intent))
+            } else {
+                Log.e(TAG, "Cannot get EnableLocation event")
+                _activityEvents.emit(ActivityEvent.ShowError("Unable to request EnableLocation"))
+            }
+        }
+    }
+
+    fun onLocationSettingsClosed() {
+        viewModelScope.launch {
+            if (locationStateManager.isEnabled()) {
+                onboardingFlowCoordinator.navigateToNextStep()
+            } else {
+                _activityEvents.emit(
+                    ActivityEvent.ShowError("User declined/Error happened: Location is required ")
+                )
             }
         }
     }

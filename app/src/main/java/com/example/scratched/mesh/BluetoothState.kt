@@ -6,8 +6,8 @@ package com.example.scratched.mesh
 
 sealed class BluetoothState {
     object DISABLED: BluetoothState()
-    object ENABLED:  BluetoothState()
-    object NOT_SUPPORTED:  BluetoothState()
+    object ENABLED: BluetoothState()
+    object NOT_SUPPORTED: BluetoothState()
 }
 
 class BluetoothDisabledException: Exception("Bluetooth adapter is disabled. User needs to enable it")

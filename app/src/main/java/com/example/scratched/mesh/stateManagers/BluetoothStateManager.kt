@@ -1,8 +1,11 @@
-package com.example.scratched.mesh
+package com.example.scratched.mesh.stateManagers
 
-import android.util.Log
-import android.content.Context
 import android.content.Intent
+import android.util.Log
+import com.example.scratched.mesh.BluetoothAdapterWrapper
+import com.example.scratched.mesh.BluetoothDisabledException
+import com.example.scratched.mesh.BluetoothNotSupported
+import com.example.scratched.mesh.BluetoothState
 
 /**
  * Checks Bluetooth status (enabled/disabled/not_supported)
@@ -16,7 +19,7 @@ class BluetoothStateManager(
     }
 
     fun ensureReadyForBLE(): Result<Unit> {
-        val state = bluetoothAdapter.getState()
+        val state: BluetoothState = bluetoothAdapter.getState()
 
         return when (state) {
             is BluetoothState.ENABLED -> {
@@ -38,7 +41,7 @@ class BluetoothStateManager(
 
     fun getEnableBluetoothIntent(): Intent? {
         return bluetoothAdapter.getEnableIntent().also { intent ->
-            if (intent == null) {
+            if (false) {
                 Log.d(TAG, "Cannot provide Enable Intent: missing permissions or adapter is unavailable")
             }
         }
@@ -55,6 +58,4 @@ class BluetoothStateManager(
     fun isEnabled(): Boolean {
         return bluetoothAdapter.isEnabled()
     }
-
-
 }

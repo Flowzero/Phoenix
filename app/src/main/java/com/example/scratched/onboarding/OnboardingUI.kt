@@ -582,6 +582,30 @@ fun LocationPermissionScreen(
 }
 
 @Composable
+fun EnableLocationScreen(
+    modifier: Modifier = Modifier,
+    onContinue: () -> Unit
+) {
+    OnboardingLayout(
+        modifier = modifier,
+        step = OnboardingStep.Location,
+        icon = Icons.Default.LocationOn,
+        iconTint = Color(0xFFE65100),
+        title = "Location is turned off",
+        description = "To discover nearby devices and use location-based features, location services must be enabled on your device.",
+        actionText = "Turn on location",
+        onContinue = onContinue,
+        content = {
+            InfoCard(
+                icon = Icons.Default.Wifi,
+                title = "System prompt",
+                description = "Your device will ask for your confirmation to enable location services."
+            )
+        }
+    )
+}
+
+@Composable
 fun NotificationPermissionScreen(
     modifier: Modifier = Modifier,
     onContinue: () -> Unit,

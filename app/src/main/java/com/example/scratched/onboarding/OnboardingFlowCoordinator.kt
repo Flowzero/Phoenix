@@ -4,7 +4,8 @@ import android.Manifest
 import android.os.Build
 import android.util.Log
 
-import com.example.scratched.mesh.BluetoothStateManager
+import com.example.scratched.mesh.stateManagers.BluetoothStateManager
+import com.example.scratched.mesh.stateManagers.LocationStateManager
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 class OnboardingFlowCoordinator(
     private val permissionsManager: PermissionsManager,
     private val bluetoothStateManager: BluetoothStateManager,
+    private val locationStateManager: LocationStateManager,
     private val onboardingStatusRepository: OnboardingStatusRepository,
 ) {
     companion object {
@@ -104,6 +106,7 @@ class OnboardingFlowCoordinator(
             is OnboardingState.BLUETOOTH -> getNextMissingState()
             is OnboardingState.ENABLE_BLUETOOTH -> getNextMissingState()
             is OnboardingState.LOCATION -> getNextMissingState()
+            is OnboardingState.ENABLE_LOCATION -> getNextMissingState()
             is OnboardingState.NOTIFICATION -> OnboardingState.ALL_SET
             is OnboardingState.ALL_SET -> OnboardingState.COMPLETED
             is OnboardingState.COMPLETED -> OnboardingState.COMPLETED
@@ -141,15 +144,20 @@ class OnboardingFlowCoordinator(
                 "\n\t->Notif: $missingNotification")
 
         val isBluetoothEnabled = bluetoothStateManager.isEnabled()
+        val isLocationEnabled = locationStateManager.isEnabled()
 
 
         return when {
             missingBluetooth -> OnboardingState.BLUETOOTH
 
-            // if Bluetooth permission is granted but Bluetooth not enabled yet
+            // if Bluetooth permission is granted but Bluetooth is not enabled yet
             !missingBluetooth && !isBluetoothEnabled -> OnboardingState.ENABLE_BLUETOOTH
 
             missingLocation -> OnboardingState.LOCATION
+
+            // if Location permission is granted but Location is not enabled yet
+            !missingLocation && !isLocationEnabled -> OnboardingState.ENABLE_LOCATION
+
             missingNotification -> OnboardingState.NOTIFICATION
             showAllSet -> OnboardingState.ALL_SET
             else -> OnboardingState.COMPLETED

@@ -22,12 +22,15 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.scratched.mesh.BluetoothStateManager
+import com.example.scratched.mesh.stateManagers.BluetoothStateManager
 import com.example.scratched.mesh.UsableBluetoothAdapter
+import com.example.scratched.mesh.UsableLocationAdapter
+import com.example.scratched.mesh.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.AboutScreen
 import com.example.scratched.onboarding.AllSetScreen
 import com.example.scratched.onboarding.BluetoothPermissionScreen
 import com.example.scratched.onboarding.EnableBluetoothScreen
+import com.example.scratched.onboarding.EnableLocationScreen
 import com.example.scratched.onboarding.GrantPermissionsManually
 import com.example.scratched.onboarding.LocationPermissionScreen
 import com.example.scratched.onboarding.MainAppScreen
@@ -50,6 +53,7 @@ class MainActivity : ComponentActivity() {
         MainViewModelFactory(
             permissionsManager = PermissionsManager(this),
             bluetoothStateManager = BluetoothStateManager(UsableBluetoothAdapter(this)),
+            locationStateManager = LocationStateManager(UsableLocationAdapter(this)),
             repository = OnboardingPrefsRepository(this)
         )
     }
@@ -57,7 +61,6 @@ class MainActivity : ComponentActivity() {
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
-        Log.d(TAG, "Result captured: $result")
         viewModel.onPermissionsResult(result)
     }
 
@@ -66,6 +69,12 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         val isSuccess = (result.resultCode == RESULT_OK)
         viewModel.onBluetoothEnableResult(isSuccess)
+    }
+
+    private val enableLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onLocationSettingsClosed()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -109,6 +118,9 @@ class MainActivity : ComponentActivity() {
             }
             is ActivityEvent.EnableBluetooth -> {
                 enableBluetoothLauncher.launch(event.intent)
+            }
+            is ActivityEvent.EnableLocation -> {
+                enableLocationLauncher.launch(event.intent)
             }
             is ActivityEvent.ShowError -> {
                 Log.e(TAG, "Error: ${event.message}")
@@ -158,7 +170,10 @@ class MainActivity : ComponentActivity() {
                 modifier = modifier,
                 onContinue = { viewModel.onRequestPermissionsClicked() }
             )
-
+            is OnboardingState.ENABLE_LOCATION -> EnableLocationScreen(
+                modifier = modifier,
+                onContinue = { viewModel.onEnableLocationClicked() }
+            )
             is OnboardingState.NOTIFICATION -> NotificationPermissionScreen(
                 modifier = modifier,
                 onContinue = { viewModel.onRequestPermissionsClicked() },

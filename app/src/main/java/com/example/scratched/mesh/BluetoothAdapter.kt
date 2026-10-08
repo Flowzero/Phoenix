@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Interface of BluetoothAdapter that allows to achieve better testability since separating
- * Android specific code
+ * Android-specific code
  */
 
 interface BluetoothAdapterWrapper {
