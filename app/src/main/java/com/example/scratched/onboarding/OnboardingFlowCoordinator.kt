@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * @property permissionsManager
  * @property bluetoothStateManager
+ * @property locationStateManager
  * @property onboardingStatusRepository
  */
 
@@ -38,6 +39,7 @@ class OnboardingFlowCoordinator(
         private const val TAG = "OnboardingFlowCoordinator"
     }
     private var isFirstTimeLaunch: Boolean = onboardingStatusRepository.isFirstTimeLaunch()
+    private var isCompleted: Boolean = onboardingStatusRepository.isCompleted()
 
     private val _currentState = MutableStateFlow<OnboardingState>(OnboardingState.WELCOME)
     // accessible from ViewModel
@@ -77,23 +79,8 @@ class OnboardingFlowCoordinator(
             return
         }
 
-        _currentState.value = determineInitState(missingRequiredPermissions)
+        _currentState.value = getNextMissingState()
         Log.d(TAG, "Starting subsequent onboarding at state: ${_currentState.value}")
-    }
-
-    private fun determineInitState(missingPermissions: List<String>): OnboardingState {
-        val bluetoothPermissions = permissionsManager.getBluetoothPermissions()
-        val locationPermissions = permissionsManager.getLocationPermissions()
-
-        val hasMissingBluetooth = missingPermissions.any { it in bluetoothPermissions }
-        val hasMissingLocation = missingPermissions.any { it in locationPermissions }
-
-        return when {
-            hasMissingBluetooth -> OnboardingState.BLUETOOTH
-            !bluetoothStateManager.isEnabled() -> OnboardingState.ENABLE_BLUETOOTH
-            hasMissingLocation -> OnboardingState.LOCATION
-            else -> OnboardingState.COMPLETED
-        }
     }
 
     fun navigateToNextStep() {
@@ -109,7 +96,7 @@ class OnboardingFlowCoordinator(
             is OnboardingState.ENABLE_LOCATION -> getNextMissingState()
             is OnboardingState.NOTIFICATION -> OnboardingState.ALL_SET
             is OnboardingState.ALL_SET -> OnboardingState.COMPLETED
-            is OnboardingState.COMPLETED -> OnboardingState.COMPLETED
+            is OnboardingState.COMPLETED -> getNextMissingState()
             is OnboardingState.FAILED -> previousState // Stay on the error screen
             is OnboardingState.RUQUIRED_PERMISSION_REJECTED -> getNextMissingState()
         }
@@ -136,7 +123,7 @@ class OnboardingFlowCoordinator(
             .any { !permissionsManager.isPermissionGranted(it) }
 
         val missingNotification = shouldShowNotificationPermission()
-        val showAllSet = isFirstTimeLaunch
+        val showAllSet = (isFirstTimeLaunch && !isCompleted)
 
         Log.d(TAG, "Checking missing permissions +" +
                 "\n\t-> BT: $missingBluetooth," +
@@ -145,7 +132,6 @@ class OnboardingFlowCoordinator(
 
         val isBluetoothEnabled = bluetoothStateManager.isEnabled()
         val isLocationEnabled = locationStateManager.isEnabled()
-
 
         return when {
             missingBluetooth -> OnboardingState.BLUETOOTH
@@ -158,7 +144,10 @@ class OnboardingFlowCoordinator(
             // if Location permission is granted but Location is not enabled yet
             !missingLocation && !isLocationEnabled -> OnboardingState.ENABLE_LOCATION
 
-            missingNotification -> OnboardingState.NOTIFICATION
+            // if missing notification permissions and onboarding was not completed yet
+            missingNotification && !isCompleted -> OnboardingState.NOTIFICATION
+
+            // showing only for first time launch
             showAllSet -> OnboardingState.ALL_SET
             else -> OnboardingState.COMPLETED
         }

@@ -9,6 +9,7 @@ package com.example.scratched.onboarding
 
 interface OnboardingStatusRepository {
     fun isFirstTimeLaunch(): Boolean
+    fun isCompleted(): Boolean
     fun markComplete()
     fun resetCompletion()
 }

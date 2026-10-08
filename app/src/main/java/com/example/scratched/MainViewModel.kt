@@ -4,6 +4,7 @@ package com.example.scratched
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.scratched.mesh.BluetoothState
 import com.example.scratched.mesh.stateManagers.BluetoothStateManager
 import com.example.scratched.mesh.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingEvent
@@ -27,7 +28,6 @@ class MainViewModel(
 
     // accessible  from Activity
     val onboardingState: StateFlow<OnboardingState> = onboardingFlowCoordinator.currentState
-    //val bluetoothState: StateFlow<BluetoothState> = bluetoothStatusManager.currentState
 
     private val _activityEvents = MutableSharedFlow<ActivityEvent>()
 
@@ -36,6 +36,18 @@ class MainViewModel(
 
     init {
         onboardingFlowCoordinator.startAppFlow()
+
+        bluetoothStatusManager.startMonitoring()
+
+        viewModelScope.launch {
+            bluetoothStatusManager.bluetoothStateFlow.collect { state ->
+                if (state == BluetoothState.DISABLED &&
+                    onboardingState.value == OnboardingState.COMPLETED) {
+
+                    onboardingFlowCoordinator.navigateToNextStep()
+                }
+            }
+        }
 
         viewModelScope.launch {
             onboardingFlowCoordinator.events.collect { event ->
@@ -52,6 +64,11 @@ class MainViewModel(
             }
         }
 
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        bluetoothStatusManager.stopMonitoring()
     }
 
     // UI commands

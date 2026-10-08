@@ -1,7 +1,8 @@
 package com.example.scratched.onboarding
 
-import android.content.Context
+
 import android.util.Log
+import android.content.Context
 
 /**
  * Implementation of [OnboardingStatusRepository] interface.
@@ -28,6 +29,13 @@ class OnboardingPrefsRepository(private val context: Context) : OnboardingStatus
         Log.d(TAG, "isComplete = $isComplete\nisFirstTimeLaunch = $isFirstTime")
 
         return isFirstTime
+    }
+
+    override fun isCompleted(): Boolean {
+        val isComplete = sharedPrefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
+        Log.d(TAG, "isCompleted = $isComplete")
+
+        return isComplete
     }
 
     override fun markComplete() {

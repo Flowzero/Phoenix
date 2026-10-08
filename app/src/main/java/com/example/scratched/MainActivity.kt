@@ -52,7 +52,9 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by this.viewModels {
         MainViewModelFactory(
             permissionsManager = PermissionsManager(this),
-            bluetoothStateManager = BluetoothStateManager(UsableBluetoothAdapter(this)),
+            bluetoothStateManager = BluetoothStateManager(
+                this,
+                UsableBluetoothAdapter(this)),
             locationStateManager = LocationStateManager(UsableLocationAdapter(this)),
             repository = OnboardingPrefsRepository(this)
         )

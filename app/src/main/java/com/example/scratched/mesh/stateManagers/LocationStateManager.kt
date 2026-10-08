@@ -1,7 +1,8 @@
 package com.example.scratched.mesh.stateManagers
 
-import android.content.Intent
+
 import android.util.Log
+import android.content.Intent
 import com.example.scratched.mesh.LocationAdapterWrapper
 import com.example.scratched.mesh.LocationDisabledException
 
