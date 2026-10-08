@@ -38,8 +38,6 @@ class OnboardingFlowCoordinator(
     companion object {
         private const val TAG = "OnboardingFlowCoordinator"
     }
-    private var isFirstTimeLaunch: Boolean = onboardingStatusRepository.isFirstTimeLaunch()
-    private var isCompleted: Boolean = onboardingStatusRepository.isCompleted()
 
     private val _currentState = MutableStateFlow<OnboardingState>(OnboardingState.WELCOME)
     // accessible from ViewModel
@@ -55,10 +53,11 @@ class OnboardingFlowCoordinator(
 
     fun startAppFlow() {
         Log.d(TAG, "Starting the onboarding flow: " +
-                if (isFirstTimeLaunch) "First time launch" else "Subsequent launch"
+                if (onboardingStatusRepository.isFirstTimeLaunch())
+                    "First time launch" else "Subsequent launch"
         )
 
-        if (isFirstTimeLaunch) {
+        if (onboardingStatusRepository.isFirstTimeLaunch()) {
             startFirstTimeOnboarding()
         } else {
             startSubsequentOnboarding()
@@ -123,7 +122,10 @@ class OnboardingFlowCoordinator(
             .any { !permissionsManager.isPermissionGranted(it) }
 
         val missingNotification = shouldShowNotificationPermission()
-        val showAllSet = (isFirstTimeLaunch && !isCompleted)
+        val showAllSet = (
+                onboardingStatusRepository.isFirstTimeLaunch() &&
+                !onboardingStatusRepository.isCompleted()
+        )
 
         Log.d(TAG, "Checking missing permissions +" +
                 "\n\t-> BT: $missingBluetooth," +
@@ -145,7 +147,7 @@ class OnboardingFlowCoordinator(
             !missingLocation && !isLocationEnabled -> OnboardingState.ENABLE_LOCATION
 
             // if missing notification permissions and onboarding was not completed yet
-            missingNotification && !isCompleted -> OnboardingState.NOTIFICATION
+            missingNotification-> OnboardingState.NOTIFICATION
 
             // showing only for first time launch
             showAllSet -> OnboardingState.ALL_SET
@@ -205,9 +207,13 @@ class OnboardingFlowCoordinator(
     }
 
     private fun shouldShowNotificationPermission(): Boolean {
-        return isFirstTimeLaunch &&
+        val isFirstTimeLaunch = onboardingStatusRepository.isFirstTimeLaunch()
+        val isCompleted = onboardingStatusRepository.isCompleted()
+
+        Log.d(TAG, "isFirstTimeLaunch = $isFirstTimeLaunch\nisCompleted = $isCompleted")
+        return (isFirstTimeLaunch && !isCompleted &&
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                !permissionsManager.isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS)
+                !permissionsManager.isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS))
     }
 
     private fun completeOnboarding() {
