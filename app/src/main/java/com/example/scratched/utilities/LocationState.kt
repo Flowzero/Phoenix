@@ -1,4 +1,4 @@
-package com.example.scratched.meshMVP
+package com.example.scratched.utilities
 
 /**
  *  Final Location state: DISABLED, ENABLED and NOT_SUPPORTED

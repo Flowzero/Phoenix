@@ -4,9 +4,9 @@ package com.example.scratched
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.scratched.meshMVP.BluetoothState
-import com.example.scratched.meshMVP.stateManagers.BluetoothStateManager
-import com.example.scratched.meshMVP.stateManagers.LocationStateManager
+import com.example.scratched.utilities.BluetoothState
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
 import com.example.scratched.onboarding.OnboardingState

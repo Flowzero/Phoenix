@@ -22,10 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.scratched.meshMVP.stateManagers.BluetoothStateManager
-import com.example.scratched.meshMVP.UsableBluetoothAdapter
-import com.example.scratched.meshMVP.UsableLocationAdapter
-import com.example.scratched.meshMVP.stateManagers.LocationStateManager
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.UsableBluetoothAdapter
+import com.example.scratched.utilities.stateManagers.UsableLocationAdapter
+import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.AboutScreen
 import com.example.scratched.onboarding.AllSetScreen
 import com.example.scratched.onboarding.BluetoothPermissionScreen

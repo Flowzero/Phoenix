@@ -1,10 +1,9 @@
-package com.example.scratched.meshMVP.stateManagers
+package com.example.scratched.utilities.stateManagers
 
 
 import android.util.Log
 import android.content.Intent
-import com.example.scratched.meshMVP.LocationAdapterWrapper
-import com.example.scratched.meshMVP.LocationDisabledException
+import com.example.scratched.utilities.LocationDisabledException
 
 /**
  * Checks Location status (enabled/disabled/not_supported)

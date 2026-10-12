@@ -3,8 +3,8 @@ package com.example.scratched
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.example.scratched.meshMVP.stateManagers.BluetoothStateManager
-import com.example.scratched.meshMVP.stateManagers.LocationStateManager
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
 import com.example.scratched.onboarding.OnboardingStatusRepository
 import com.example.scratched.utilities.PermissionsManager

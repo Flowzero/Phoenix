@@ -1,4 +1,4 @@
-package com.example.scratched.meshMVP
+package com.example.scratched.utilities
 
 
 import android.util.Log

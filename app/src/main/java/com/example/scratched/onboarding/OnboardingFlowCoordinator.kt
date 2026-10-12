@@ -4,8 +4,8 @@ import android.Manifest
 import android.os.Build
 import android.util.Log
 
-import com.example.scratched.meshMVP.stateManagers.BluetoothStateManager
-import com.example.scratched.meshMVP.stateManagers.LocationStateManager
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
