@@ -1,4 +1,4 @@
-package com.example.scratched.mesh
+package com.example.scratched.meshMVP
 
 /**
  *  Final Bluetooth state: DISABLED, ENABLED and NOT_SUPPORTED

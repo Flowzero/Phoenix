@@ -1,4 +1,4 @@
-package com.example.scratched.mesh.stateManagers
+package com.example.scratched.meshMVP.stateManagers
 
 
 import android.util.Log
@@ -9,10 +9,10 @@ import android.content.BroadcastReceiver
 import android.bluetooth.BluetoothAdapter
 import androidx.core.content.ContextCompat
 
-import com.example.scratched.mesh.BluetoothAdapterWrapper
-import com.example.scratched.mesh.BluetoothDisabledException
-import com.example.scratched.mesh.BluetoothNotSupported
-import com.example.scratched.mesh.BluetoothState
+import com.example.scratched.meshMVP.BluetoothAdapterWrapper
+import com.example.scratched.meshMVP.BluetoothDisabledException
+import com.example.scratched.meshMVP.BluetoothNotSupported
+import com.example.scratched.meshMVP.BluetoothState
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
