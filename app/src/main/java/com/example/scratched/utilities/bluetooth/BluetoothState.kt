@@ -1,4 +1,4 @@
-package com.example.scratched.utilities
+package com.example.scratched.utilities.bluetooth
 
 /**
  *  Final Bluetooth state: DISABLED, ENABLED and NOT_SUPPORTED

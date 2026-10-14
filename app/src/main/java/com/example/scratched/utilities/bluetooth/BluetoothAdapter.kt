@@ -1,4 +1,4 @@
-package com.example.scratched.utilities
+package com.example.scratched.utilities.bluetooth
 
 
 import android.util.Log
@@ -32,11 +32,14 @@ interface BluetoothAdapterWrapper {
  */
 
 class UsableBluetoothAdapter(private val context: Context): BluetoothAdapterWrapper {
-    private val bluetoothAdapter: BluetoothAdapter?
-        get() = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+    private val bluetoothAdapter: BluetoothAdapter? by lazy {
+        val bluetoothManager: BluetoothManager? = (
+                context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)
+        bluetoothManager?.adapter
+    }
 
     private val _currentBluetoothState = MutableStateFlow<BluetoothState>(BluetoothState.DISABLED)
-    // accessible from ViewModel
+    // public accessible
     val currentBluetoothState: StateFlow<BluetoothState> = _currentBluetoothState.asStateFlow()
 
     override fun isSupported(): Boolean {

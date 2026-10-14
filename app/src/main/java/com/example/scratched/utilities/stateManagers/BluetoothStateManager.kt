@@ -9,10 +9,10 @@ import android.content.BroadcastReceiver
 import android.bluetooth.BluetoothAdapter
 import androidx.core.content.ContextCompat
 
-import com.example.scratched.utilities.BluetoothAdapterWrapper
-import com.example.scratched.utilities.BluetoothDisabledException
-import com.example.scratched.utilities.BluetoothNotSupported
-import com.example.scratched.utilities.BluetoothState
+import com.example.scratched.utilities.bluetooth.BluetoothAdapterWrapper
+import com.example.scratched.utilities.bluetooth.BluetoothDisabledException
+import com.example.scratched.utilities.bluetooth.BluetoothNotSupported
+import com.example.scratched.utilities.bluetooth.BluetoothState
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

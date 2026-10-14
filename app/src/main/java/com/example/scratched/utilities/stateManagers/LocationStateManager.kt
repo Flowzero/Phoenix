@@ -3,7 +3,7 @@ package com.example.scratched.utilities.stateManagers
 
 import android.util.Log
 import android.content.Intent
-import com.example.scratched.utilities.LocationDisabledException
+import com.example.scratched.utilities.location.LocationDisabledException
 
 /**
  * Checks Location status (enabled/disabled/not_supported)

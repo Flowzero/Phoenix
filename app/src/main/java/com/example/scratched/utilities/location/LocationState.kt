@@ -1,4 +1,4 @@
-package com.example.scratched.utilities
+package com.example.scratched.utilities.location
 
 /**
  *  Final Location state: DISABLED, ENABLED and NOT_SUPPORTED

@@ -23,17 +23,19 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
-import com.example.scratched.utilities.UsableBluetoothAdapter
+import com.example.scratched.utilities.bluetooth.UsableBluetoothAdapter
 import com.example.scratched.utilities.stateManagers.UsableLocationAdapter
 import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.AboutScreen
 import com.example.scratched.onboarding.AllSetScreen
+import com.example.scratched.onboarding.BleScanStatus
 import com.example.scratched.onboarding.BluetoothPermissionScreen
 import com.example.scratched.onboarding.EnableBluetoothScreen
 import com.example.scratched.onboarding.EnableLocationScreen
 import com.example.scratched.onboarding.GrantPermissionsManually
 import com.example.scratched.onboarding.LocationPermissionScreen
 import com.example.scratched.onboarding.MainAppScreen
+import com.example.scratched.onboarding.MainScreenUiState
 import com.example.scratched.onboarding.NotificationPermissionScreen
 import com.example.scratched.onboarding.OnboardingState
 import com.example.scratched.onboarding.OnboardingPrefsRepository
@@ -185,7 +187,22 @@ class MainActivity : ComponentActivity() {
                 modifier = modifier,
                 onContinue = { viewModel.onNextClicked() }
             )
-            is OnboardingState.COMPLETED -> MainAppScreen(modifier = modifier)
+            is OnboardingState.COMPLETED -> MainAppScreen(
+                uiState = MainScreenUiState(
+                    scanStatus = BleScanStatus.IDLE,
+                    isBluetoothEnabled = true,
+                    hasRequiredPermissions = true
+                ),
+                onStartScan = {
+                    // TODO: viewModel.onStartScanClick()
+                },
+                onStopScan = {
+                    // TODO: viewModel.onStopScanClick()
+                },
+                onDeviceClick = { device ->
+                    // TODO: переход к деталям устройства или подключение
+                }
+            )
             is OnboardingState.FAILED -> {
                 // FailedScreen(errorMessage = (onboardingState as OnboardingState.FAILED).errorMessage)
                 Log.e(TAG, "Onboarding failed: ${(onboardingState as OnboardingState.FAILED).errorMessage}")
