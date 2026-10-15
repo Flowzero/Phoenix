@@ -4,23 +4,34 @@ package com.example.scratched
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
 import com.example.scratched.utilities.bluetooth.BluetoothState
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
+import com.example.scratched.onboarding.OnboardingPrefsRepository
 import com.example.scratched.onboarding.OnboardingState
+import com.example.scratched.onboarding.OnboardingStatusRepository
+import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 class MainViewModel(
     private val onboardingFlowCoordinator: OnboardingFlowCoordinator,
     private val bluetoothStatusManager: BluetoothStateManager,
-    private val locationStateManager: LocationStateManager
+    private val locationStateManager: LocationStateManager,
+
+    //TEST
+    private val permissionsManager: PermissionsManager,
+    private val gattClientManager: BluetoothGattClientManager
 ) : ViewModel() {
     companion object {
         const val TAG = "MainViewModel"
@@ -30,14 +41,17 @@ class MainViewModel(
     val onboardingState: StateFlow<OnboardingState> = onboardingFlowCoordinator.currentState
 
     private val _activityEvents = MutableSharedFlow<ActivityEvent>()
-
     // accessible from Activity
     val activityEvents: SharedFlow<ActivityEvent> = _activityEvents.asSharedFlow()
 
+    private val _uiState = MutableStateFlow(MainScreenUiState())
+    val uiState: StateFlow<MainScreenUiState> = _uiState.asStateFlow()
+    private val deviceMap = mutableMapOf<String, BleDeviceUiModel>()
+
     init {
         onboardingFlowCoordinator.startAppFlow()
-
         bluetoothStatusManager.startMonitoring()
+        updateBaseState()
 
         viewModelScope.launch {
             bluetoothStatusManager.bluetoothStateFlow.collect { state ->
@@ -61,6 +75,32 @@ class MainViewModel(
                     }
                 }
                 _activityEvents.emit(activityEvent)
+            }
+        }
+
+        viewModelScope.launch {
+            gattClientManager.discoveredDevices.collect { newDevice ->
+                val existingDevice = deviceMap[newDevice.address]
+
+                val updatedDevice = if (existingDevice != null) {
+                    existingDevice.copy(
+                        rssi = newDevice.rssi,
+                        lastSeenAtMillis = newDevice.lastSeenAtMillis,
+                        scanCount = existingDevice.scanCount + 1,
+                        name = if (existingDevice.name.isNullOrBlank()) newDevice.name else existingDevice.name
+                    )
+                } else {
+                    newDevice
+                }
+
+                deviceMap[updatedDevice.address] = updatedDevice
+
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        devices = deviceMap.values.toList(),
+                        discoveredDeviceCount = deviceMap.size
+                    )
+                }
             }
         }
 
@@ -133,5 +173,59 @@ class MainViewModel(
                 )
             }
         }
+    }
+
+    private fun updateBaseState() {
+        _uiState.update {
+            it.copy(
+                isBluetoothEnabled = true, // temp const val
+                hasRequiredPermissions = permissionsManager.areAllRequiredPermissionsGranted()
+            )
+        }
+    }
+
+    fun onRestartOnboardingClick() {
+        onboardingFlowCoordinator.resetOnboarding()
+        onboardingFlowCoordinator.startAppFlow()
+    }
+
+    fun onStartScanClicked() {
+        updateBaseState()
+        val currentState = _uiState.value
+
+        if (!currentState.hasRequiredPermissions) {
+            _uiState.update { it.copy(scanStatus = BleScanStatus.PERMISSION_REQUIRED) }
+            return
+        }
+        if (!currentState.isBluetoothEnabled) {
+            _uiState.update { it.copy(scanStatus = BleScanStatus.BLUETOOTH_DISABLED) }
+            return
+        }
+
+        deviceMap.clear()
+        _uiState.update {
+            it.copy(
+                scanStatus = BleScanStatus.SCANNING,
+                scanStartedAtMillis = System.currentTimeMillis(),
+                devices = emptyList(),
+                discoveredDeviceCount = 0
+            )
+        }
+
+        gattClientManager.startScanning()
+    }
+
+    fun onStopScanClicked() {
+        gattClientManager.stopScanning()
+        _uiState.update { it.copy(scanStatus = BleScanStatus.STOPPED) }
+    }
+
+    fun onDeviceClick(device: BleDeviceUiModel) {
+        Log.d(TAG, "Device clicked: ${device.displayName} (${device.address})")
+        // TODO: call gattClientManager.connectToDevice(device.address)
+    }
+
+    fun refreshState() {
+        updateBaseState()
     }
 }

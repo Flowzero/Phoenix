@@ -222,4 +222,9 @@ class OnboardingFlowCoordinator(
 
         Log.d(TAG, "Onboarding completed, navigating to main app screen")
     }
+
+    // for testing purposes
+    fun resetOnboarding() {
+        onboardingStatusRepository.resetCompletion()
+    }
 }

@@ -69,6 +69,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Refresh
+
+
+import com.example.scratched.BleDeviceUiModel
+import com.example.scratched.BleScanStatus
+import com.example.scratched.MainScreenUiState
 
 // ==========================================
 // ОБЩИЕ КОНСТАНТЫ
@@ -83,44 +89,6 @@ private val ProgressBarHeight = 54.dp
 private val MainScreenHorizontalPadding = 20.dp
 private val MainScreenContentMaxWidth = 560.dp
 
-// ==========================================
-// МОДЕЛИ UI ДЛЯ BLE-СКАНИРОВАНИЯ
-// ==========================================
-
-enum class BleScanStatus {
-    IDLE,
-    SCANNING,
-    STOPPED,
-    PERMISSION_REQUIRED,
-    BLUETOOTH_DISABLED,
-    ERROR
-}
-
-data class BleDeviceUiModel(
-    val address: String,
-    val name: String?,
-    val rssi: Int,
-    val txPower: Int?,
-    val serviceUuids: List<String>,
-    val manufacturerData: Map<Int, ByteArray>,
-    val isConnectable: Boolean?,
-    val firstSeenAtMillis: Long,
-    val lastSeenAtMillis: Long,
-    val scanCount: Int
-) {
-    val displayName: String
-        get() = name?.takeIf { it.isNotBlank() } ?: "Unknown device"
-}
-
-data class MainScreenUiState(
-    val scanStatus: BleScanStatus = BleScanStatus.IDLE,
-    val isBluetoothEnabled: Boolean = true,
-    val hasRequiredPermissions: Boolean = true,
-    val errorMessage: String? = null,
-    val devices: List<BleDeviceUiModel> = emptyList(),
-    val discoveredDeviceCount: Int = 0,
-    val scanStartedAtMillis: Long? = null
-)
 
 // ==========================================
 // ONBOARDING
@@ -917,7 +885,8 @@ fun MainAppScreen(
     uiState: MainScreenUiState = MainScreenUiState(),
     onStartScan: () -> Unit = {},
     onStopScan: () -> Unit = {},
-    onDeviceClick: (BleDeviceUiModel) -> Unit = {}
+    onDeviceClick: (BleDeviceUiModel) -> Unit = {},
+    onRestartOnboarding: () -> Unit = {}
 ) {
     var isVisible by remember {
         mutableStateOf(false)
@@ -966,7 +935,7 @@ fun MainAppScreen(
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    ) { /*
                         MainScreenIconBadge(
                             icon = Icons.Default.PhoneAndroid
                         )
@@ -987,6 +956,7 @@ fun MainAppScreen(
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        */
                     }
                 }
 
@@ -1070,6 +1040,49 @@ fun MainAppScreen(
                         isScanning = uiState.scanStatus == BleScanStatus.SCANNING,
                         onDeviceClick = onDeviceClick
                     )
+                }
+            }
+
+            Spacer(
+                modifier = Modifier
+                    .weight(1f)
+            )
+
+            /*
+             * Кнопка повторного прохождения онбординга.
+             */
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 450,
+                        delayMillis = 420
+                    )
+                ) + slideInVertically(
+                    animationSpec = tween(
+                        durationMillis = 450,
+                        delayMillis = 420,
+                        easing = FastOutSlowInEasing
+                    ),
+                    initialOffsetY = { it / 6 }
+                )
+            ) {
+                OutlinedButton(
+                    onClick = onRestartOnboarding,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .width(MainScreenContentMaxWidth)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(text = "Run onboarding again")
                 }
             }
 

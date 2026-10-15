@@ -28,14 +28,14 @@ import com.example.scratched.utilities.stateManagers.UsableLocationAdapter
 import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.AboutScreen
 import com.example.scratched.onboarding.AllSetScreen
-import com.example.scratched.onboarding.BleScanStatus
+
 import com.example.scratched.onboarding.BluetoothPermissionScreen
 import com.example.scratched.onboarding.EnableBluetoothScreen
 import com.example.scratched.onboarding.EnableLocationScreen
 import com.example.scratched.onboarding.GrantPermissionsManually
 import com.example.scratched.onboarding.LocationPermissionScreen
 import com.example.scratched.onboarding.MainAppScreen
-import com.example.scratched.onboarding.MainScreenUiState
+
 import com.example.scratched.onboarding.NotificationPermissionScreen
 import com.example.scratched.onboarding.OnboardingState
 import com.example.scratched.onboarding.OnboardingPrefsRepository
@@ -44,12 +44,22 @@ import com.example.scratched.ui.theme.ScratchedTheme
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.launch
 
+import com.example.scratched.BleDeviceUiModel
+import com.example.scratched.BleScanStatus
+import com.example.scratched.MainScreenUiState
+import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+
 
 class MainActivity : ComponentActivity() {
 
     companion object {
         const val TAG = "MainActivity"
     }
+
+    private val managerScope = CoroutineScope(Dispatchers.IO+ SupervisorJob())
 
     private val viewModel: MainViewModel by this.viewModels {
         MainViewModelFactory(
@@ -58,7 +68,11 @@ class MainActivity : ComponentActivity() {
                 this,
                 UsableBluetoothAdapter(this)),
             locationStateManager = LocationStateManager(UsableLocationAdapter(this)),
-            repository = OnboardingPrefsRepository(this)
+            repository = OnboardingPrefsRepository(this),
+            gattClientManager = BluetoothGattClientManager(
+                context = this,
+                connectionScope = managerScope,
+                permissionsManager = PermissionsManager(this))
         )
     }
 
@@ -141,6 +155,18 @@ class MainActivity : ComponentActivity() {
         startActivity(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // If user updated the Bluetooth state in settings
+        viewModel.refreshState()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Stop scanning if activity is killed! (FOR NOW: TEST IMPL!)
+        viewModel.onStopScanClicked()
+    }
+
     @Composable
     private fun OnboardingFlowScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         val onboardingState by viewModel.onboardingState.collectAsState()
@@ -187,26 +213,26 @@ class MainActivity : ComponentActivity() {
                 modifier = modifier,
                 onContinue = { viewModel.onNextClicked() }
             )
-            is OnboardingState.COMPLETED -> MainAppScreen(
-                uiState = MainScreenUiState(
-                    scanStatus = BleScanStatus.IDLE,
-                    isBluetoothEnabled = true,
-                    hasRequiredPermissions = true
-                ),
-                onStartScan = {
-                    // TODO: viewModel.onStartScanClick()
-                },
-                onStopScan = {
-                    // TODO: viewModel.onStopScanClick()
-                },
-                onDeviceClick = { device ->
-                    // TODO: переход к деталям устройства или подключение
-                }
-            )
+            is OnboardingState.COMPLETED -> MainAppScreenContent(viewModel, modifier)
+
             is OnboardingState.FAILED -> {
                 // FailedScreen(errorMessage = (onboardingState as OnboardingState.FAILED).errorMessage)
                 Log.e(TAG, "Onboarding failed: ${(onboardingState as OnboardingState.FAILED).errorMessage}")
             }
         }
+    }
+
+    @Composable
+    private fun MainAppScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
+        val uiState by viewModel.uiState.collectAsState()
+
+        MainAppScreen(
+            modifier = modifier,
+            uiState = uiState,
+            onStartScan = { viewModel.onStartScanClicked() },
+            onStopScan = { viewModel.onStopScanClicked() },
+            onDeviceClick = { device -> viewModel.onDeviceClick(device) },
+            onRestartOnboarding = { viewModel.onRestartOnboardingClick() }
+        )
     }
 }
