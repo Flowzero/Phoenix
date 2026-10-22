@@ -74,6 +74,15 @@ class OnboardingPrefsRepositoryTest {
     }
 
     @Test
+    fun isCompleted_reflectsStoredFlag() {
+        assertFalse(repository.isCompleted())
+        repository.markComplete()
+        assertTrue(repository.isCompleted())
+        repository.resetCompletion()
+        assertFalse(repository.isCompleted())
+    }
+
+    @Test
     fun markComplete_savesCompletedState() {
         repository.markComplete()
 

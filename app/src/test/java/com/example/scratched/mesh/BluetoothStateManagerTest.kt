@@ -1,6 +1,12 @@
 package com.example.scratched.mesh
 
 import android.content.Intent
+import android.content.Context
+import com.example.scratched.utilities.bluetooth.BluetoothAdapterWrapper
+import com.example.scratched.utilities.bluetooth.BluetoothState
+import com.example.scratched.utilities.bluetooth.BluetoothDisabledException
+import com.example.scratched.utilities.bluetooth.BluetoothNotSupported
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import android.util.Log
 import io.mockk.every
 import io.mockk.mockk
@@ -27,7 +33,8 @@ class BluetoothStateManagerTest {
         every { Log.w(any<String>(), any<String>()) } returns 0
 
         bluetoothAdapter = mockk()
-        manager = BluetoothStateManager(bluetoothAdapter)
+        every { bluetoothAdapter.getState() } returns BluetoothState.DISABLED
+        manager = BluetoothStateManager(mockk<Context>(), bluetoothAdapter)
     }
 
     @After

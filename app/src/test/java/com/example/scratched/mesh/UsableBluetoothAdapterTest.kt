@@ -5,8 +5,11 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import com.example.scratched.utilities.bluetooth.UsableBluetoothAdapter
+import com.example.scratched.utilities.bluetooth.BluetoothState
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -52,6 +55,25 @@ class UsableBluetoothAdapterTest {
         every { context.getSystemService(Context.BLUETOOTH_SERVICE) } returns null
 
         assertFalse(adapterWrapper.isSupported())
+    }
+
+    @Test
+    fun missingAdapter_disablesOperationsAndHasNoName() {
+        every { bluetoothManager.adapter } returns null
+        assertFalse(adapterWrapper.isSupported())
+        assertFalse(adapterWrapper.isEnabled())
+        assertNull(adapterWrapper.getAdapterName())
+    }
+
+    @Test
+    fun adapterLookup_isLazyAndCachedAcrossOperations() {
+        verify(exactly = 0) { context.getSystemService(Context.BLUETOOTH_SERVICE) }
+        every { bluetoothAdapter.isEnabled } returns true
+        every { bluetoothAdapter.name } returns "Phone"
+        assertTrue(adapterWrapper.isSupported())
+        assertTrue(adapterWrapper.isEnabled())
+        assertEquals("Phone", adapterWrapper.getAdapterName())
+        verify(exactly = 1) { context.getSystemService(Context.BLUETOOTH_SERVICE) }
     }
 
     @Test

@@ -2,7 +2,8 @@ package com.example.scratched.onboarding
 
 import android.Manifest
 import android.util.Log
-import com.example.scratched.mesh.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.utilities.PermissionsManager
 import io.mockk.Runs
 import io.mockk.every
@@ -26,6 +27,8 @@ class OnboardingFlowCoordinatorTest {
     private lateinit var permissionsManager: PermissionsManager
     private lateinit var bluetoothStateManager: BluetoothStateManager
     private lateinit var repository: OnboardingStatusRepository
+    private lateinit var locationStateManager: LocationStateManager
+    private var completed = false
 
     @Before
     fun setUp() {
@@ -33,10 +36,17 @@ class OnboardingFlowCoordinatorTest {
         every { Log.d(any<String>(), any<String>()) } returns 0
         every { Log.w(any<String>(), any<String>()) } returns 0
 
-        permissionsManager = mockk()
+        permissionsManager = mockk(relaxed = true)
+        every { permissionsManager.isPermissionGranted(any()) } answers {
+            firstArg<String>() !in permissionsManager.getMissingRequiredPermissions()
+        }
         bluetoothStateManager = mockk()
+        locationStateManager = mockk()
+        every { locationStateManager.isEnabled() } returns true
         repository = mockk()
-        every { repository.markComplete() } just Runs
+        completed = false
+        every { repository.markComplete() } answers { completed = true }
+        every { repository.isCompleted() } answers { completed }
         every { bluetoothStateManager.isEnabled() } returns true
     }
 
@@ -46,11 +56,13 @@ class OnboardingFlowCoordinatorTest {
     }
 
     private fun createCoordinator(isFirstTimeLaunch: Boolean): OnboardingFlowCoordinator {
-        every { repository.isFirstTimeLaunch() } returns isFirstTimeLaunch
+        completed = !isFirstTimeLaunch
+        every { repository.isFirstTimeLaunch() } answers { !completed }
 
         return OnboardingFlowCoordinator(
             permissionsManager = permissionsManager,
             bluetoothStateManager = bluetoothStateManager,
+            locationStateManager = locationStateManager,
             onboardingStatusRepository = repository
         )
     }

@@ -2,7 +2,13 @@ package com.example.scratched
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import com.example.scratched.mesh.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.LocationStateManager
+import com.example.scratched.utilities.bluetooth.BluetoothState
+import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+import androidx.lifecycle.ViewModelStore
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import com.example.scratched.onboarding.OnboardingState
 import com.example.scratched.onboarding.OnboardingStatusRepository
 import com.example.scratched.utilities.PermissionsManager
@@ -31,6 +37,7 @@ class MainViewModelFactoryTest {
     private lateinit var bluetoothStateManager: BluetoothStateManager
     private lateinit var repository: OnboardingStatusRepository
     private lateinit var factory: MainViewModelFactory
+    private val store = ViewModelStore()
 
     @Before
     fun setUp() {
@@ -43,11 +50,18 @@ class MainViewModelFactoryTest {
         repository = mockk()
         every { repository.isFirstTimeLaunch() } returns true
         every { repository.markComplete() } just Runs
-        factory = MainViewModelFactory(permissionsManager, bluetoothStateManager, repository)
+        every { bluetoothStateManager.bluetoothStateFlow } returns MutableStateFlow(BluetoothState.ENABLED)
+        val scanner = mockk<BluetoothGattClientManager>(relaxed = true)
+        every { scanner.discoveredDevices } returns MutableSharedFlow()
+        factory = MainViewModelFactory(
+            permissionsManager, bluetoothStateManager,
+            mockk<LocationStateManager>(relaxed = true), scanner, repository
+        )
     }
 
     @After
     fun tearDown() {
+        store.clear()
         Dispatchers.resetMain()
         unmockkStatic(Log::class)
     }
@@ -55,6 +69,7 @@ class MainViewModelFactoryTest {
     @Test
     fun create_returnsMainViewModel_forSupportedClass() {
         val viewModel: ViewModel = factory.create(MainViewModel::class.java)
+        store.put("test", viewModel)
 
         assertEquals(MainViewModel::class.java, viewModel.javaClass)
     }
@@ -62,6 +77,7 @@ class MainViewModelFactoryTest {
     @Test
     fun create_returnsViewModelWithWelcomeState_onFirstLaunch() {
         val viewModel = factory.create(MainViewModel::class.java)
+        store.put("test", viewModel)
 
         assertEquals(OnboardingState.WELCOME, viewModel.onboardingState.value)
     }

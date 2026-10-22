@@ -3,7 +3,8 @@ package com.example.scratched.onboarding
 import android.Manifest
 import android.os.Build
 import android.util.Log
-import com.example.scratched.mesh.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.utilities.PermissionsManager
 import io.mockk.Runs
 import io.mockk.every
@@ -31,6 +32,7 @@ class OnboardingFlowCoordinatorApiTest {
     private lateinit var permissionsManager: PermissionsManager
     private lateinit var bluetoothStateManager: BluetoothStateManager
     private lateinit var repository: OnboardingStatusRepository
+    private lateinit var locationStateManager: LocationStateManager
 
     @Before
     fun setUp() {
@@ -40,7 +42,10 @@ class OnboardingFlowCoordinatorApiTest {
 
         permissionsManager = mockk()
         bluetoothStateManager = mockk()
+        locationStateManager = mockk()
+        every { locationStateManager.isEnabled() } returns true
         repository = mockk()
+        every { repository.isCompleted() } returns false
         every { repository.isFirstTimeLaunch() } returns true
         every { repository.markComplete() } just Runs
         every { permissionsManager.getBluetoothPermissions() } returns emptyList()
@@ -57,6 +62,7 @@ class OnboardingFlowCoordinatorApiTest {
         return OnboardingFlowCoordinator(
             permissionsManager,
             bluetoothStateManager,
+            locationStateManager,
             repository
         )
     }

@@ -2,7 +2,12 @@ package com.example.scratched
 
 import android.content.Intent
 import android.util.Log
-import com.example.scratched.mesh.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.LocationStateManager
+import com.example.scratched.utilities.bluetooth.BluetoothState
+import com.example.scratched.utilities.PermissionsManager
+import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+import androidx.lifecycle.ViewModelStore
 import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
 import com.example.scratched.onboarding.OnboardingState
@@ -38,6 +43,7 @@ class MainViewModelTest {
     private lateinit var coordinatorState: MutableStateFlow<OnboardingState>
     private lateinit var coordinatorEvents: MutableSharedFlow<OnboardingEvent>
     private lateinit var viewModel: MainViewModel
+    private val viewModelStore = ViewModelStore()
 
     @Before
     fun setUp() {
@@ -56,11 +62,21 @@ class MainViewModelTest {
         every { coordinator.events } returns coordinatorEvents
         every { coordinator.startAppFlow() } just Runs
 
-        viewModel = MainViewModel(coordinator, bluetoothStateManager)
+        every { bluetoothStateManager.bluetoothStateFlow } returns MutableStateFlow(BluetoothState.ENABLED)
+        every { bluetoothStateManager.startMonitoring() } just Runs
+        every { bluetoothStateManager.stopMonitoring() } just Runs
+        val scanner = mockk<BluetoothGattClientManager>(relaxed = true)
+        every { scanner.discoveredDevices } returns MutableSharedFlow()
+        viewModel = MainViewModel(
+            coordinator, bluetoothStateManager, mockk<LocationStateManager>(relaxed = true),
+            mockk<PermissionsManager>(relaxed = true), scanner
+        )
+        viewModelStore.put("test", viewModel)
     }
 
     @After
     fun tearDown() {
+        viewModelStore.clear()
         Dispatchers.resetMain()
         unmockkStatic(Log::class)
     }
