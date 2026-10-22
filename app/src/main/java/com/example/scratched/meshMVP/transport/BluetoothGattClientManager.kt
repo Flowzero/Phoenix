@@ -30,7 +30,8 @@ import kotlinx.coroutines.launch
 class BluetoothGattClientManager(
     private val context: Context,
     private val connectionScope: CoroutineScope,
-    private val permissionsManager: PermissionsManager
+    private val permissionsManager: PermissionsManager,
+    private val currentTimeMillis: () -> Long = System::currentTimeMillis
 
 ) {
     companion object {
@@ -133,7 +134,7 @@ class BluetoothGattClientManager(
         rssi: Int,
         scanRecord: android.bluetooth.le.ScanRecord?
     ): BleDeviceUiModel {
-        val currentTime = System.currentTimeMillis()
+        val currentTime = currentTimeMillis()
 
         val serviceUuids = scanRecord?.serviceUuids?.map { it.uuid.toString() } ?: emptyList()
 
@@ -175,7 +176,7 @@ class BluetoothGattClientManager(
 
         // check if need to wait before performing a scan
         // to prevent "scanning too frequently error
-        val currentTime = System.currentTimeMillis()
+        val currentTime = currentTimeMillis()
         val timeSinceLastStart = currentTime - lastScanTime
         if (timeSinceLastStart < scanRateLimit) {
             val remainingWait = scanRateLimit - timeSinceLastStart
