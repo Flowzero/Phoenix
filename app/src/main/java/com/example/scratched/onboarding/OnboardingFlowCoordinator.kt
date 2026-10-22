@@ -4,7 +4,8 @@ import android.Manifest
 import android.os.Build
 import android.util.Log
 
-import com.example.scratched.mesh.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,18 +25,19 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * @property permissionsManager
  * @property bluetoothStateManager
+ * @property locationStateManager
  * @property onboardingStatusRepository
  */
 
 class OnboardingFlowCoordinator(
     private val permissionsManager: PermissionsManager,
     private val bluetoothStateManager: BluetoothStateManager,
+    private val locationStateManager: LocationStateManager,
     private val onboardingStatusRepository: OnboardingStatusRepository,
 ) {
     companion object {
         private const val TAG = "OnboardingFlowCoordinator"
     }
-    private var isFirstTimeLaunch: Boolean = onboardingStatusRepository.isFirstTimeLaunch()
 
     private val _currentState = MutableStateFlow<OnboardingState>(OnboardingState.WELCOME)
     // accessible from ViewModel
@@ -51,10 +53,11 @@ class OnboardingFlowCoordinator(
 
     fun startAppFlow() {
         Log.d(TAG, "Starting the onboarding flow: " +
-                if (isFirstTimeLaunch) "First time launch" else "Subsequent launch"
+                if (onboardingStatusRepository.isFirstTimeLaunch())
+                    "First time launch" else "Subsequent launch"
         )
 
-        if (isFirstTimeLaunch) {
+        if (onboardingStatusRepository.isFirstTimeLaunch()) {
             startFirstTimeOnboarding()
         } else {
             startSubsequentOnboarding()
@@ -75,23 +78,8 @@ class OnboardingFlowCoordinator(
             return
         }
 
-        _currentState.value = determineInitState(missingRequiredPermissions)
+        _currentState.value = getNextMissingState()
         Log.d(TAG, "Starting subsequent onboarding at state: ${_currentState.value}")
-    }
-
-    private fun determineInitState(missingPermissions: List<String>): OnboardingState {
-        val bluetoothPermissions = permissionsManager.getBluetoothPermissions()
-        val locationPermissions = permissionsManager.getLocationPermissions()
-
-        val hasMissingBluetooth = missingPermissions.any { it in bluetoothPermissions }
-        val hasMissingLocation = missingPermissions.any { it in locationPermissions }
-
-        return when {
-            hasMissingBluetooth -> OnboardingState.BLUETOOTH
-            !bluetoothStateManager.isEnabled() -> OnboardingState.ENABLE_BLUETOOTH
-            hasMissingLocation -> OnboardingState.LOCATION
-            else -> OnboardingState.COMPLETED
-        }
     }
 
     fun navigateToNextStep() {
@@ -104,9 +92,10 @@ class OnboardingFlowCoordinator(
             is OnboardingState.BLUETOOTH -> getNextMissingState()
             is OnboardingState.ENABLE_BLUETOOTH -> getNextMissingState()
             is OnboardingState.LOCATION -> getNextMissingState()
+            is OnboardingState.ENABLE_LOCATION -> getNextMissingState()
             is OnboardingState.NOTIFICATION -> OnboardingState.ALL_SET
             is OnboardingState.ALL_SET -> OnboardingState.COMPLETED
-            is OnboardingState.COMPLETED -> OnboardingState.COMPLETED
+            is OnboardingState.COMPLETED -> getNextMissingState()
             is OnboardingState.FAILED -> previousState // Stay on the error screen
             is OnboardingState.RUQUIRED_PERMISSION_REJECTED -> getNextMissingState()
         }
@@ -133,7 +122,10 @@ class OnboardingFlowCoordinator(
             .any { !permissionsManager.isPermissionGranted(it) }
 
         val missingNotification = shouldShowNotificationPermission()
-        val showAllSet = isFirstTimeLaunch
+        val showAllSet = (
+                onboardingStatusRepository.isFirstTimeLaunch() &&
+                !onboardingStatusRepository.isCompleted()
+        )
 
         Log.d(TAG, "Checking missing permissions +" +
                 "\n\t-> BT: $missingBluetooth," +
@@ -141,16 +133,23 @@ class OnboardingFlowCoordinator(
                 "\n\t->Notif: $missingNotification")
 
         val isBluetoothEnabled = bluetoothStateManager.isEnabled()
-
+        val isLocationEnabled = locationStateManager.isEnabled()
 
         return when {
             missingBluetooth -> OnboardingState.BLUETOOTH
 
-            // if Bluetooth permission is granted but Bluetooth not enabled yet
+            // if Bluetooth permission is granted but Bluetooth is not enabled yet
             !missingBluetooth && !isBluetoothEnabled -> OnboardingState.ENABLE_BLUETOOTH
 
             missingLocation -> OnboardingState.LOCATION
-            missingNotification -> OnboardingState.NOTIFICATION
+
+            // if Location permission is granted but Location is not enabled yet
+            !missingLocation && !isLocationEnabled -> OnboardingState.ENABLE_LOCATION
+
+            // if missing notification permissions and onboarding was not completed yet
+            missingNotification-> OnboardingState.NOTIFICATION
+
+            // showing only for first time launch
             showAllSet -> OnboardingState.ALL_SET
             else -> OnboardingState.COMPLETED
         }
@@ -208,9 +207,13 @@ class OnboardingFlowCoordinator(
     }
 
     private fun shouldShowNotificationPermission(): Boolean {
-        return isFirstTimeLaunch &&
+        val isFirstTimeLaunch = onboardingStatusRepository.isFirstTimeLaunch()
+        val isCompleted = onboardingStatusRepository.isCompleted()
+
+        Log.d(TAG, "isFirstTimeLaunch = $isFirstTimeLaunch\nisCompleted = $isCompleted")
+        return (isFirstTimeLaunch && !isCompleted &&
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                !permissionsManager.isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS)
+                !permissionsManager.isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS))
     }
 
     private fun completeOnboarding() {
@@ -218,5 +221,10 @@ class OnboardingFlowCoordinator(
         _currentState.value = OnboardingState.COMPLETED
 
         Log.d(TAG, "Onboarding completed, navigating to main app screen")
+    }
+
+    // for debug purposes
+    fun resetOnboarding() {
+        onboardingStatusRepository.resetCompletion()
     }
 }

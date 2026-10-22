@@ -16,5 +16,6 @@ sealed interface ActivityEvent {
         override fun hashCode(): Int = permissions.contentHashCode()
     }
     data class EnableBluetooth(val intent: Intent): ActivityEvent
+    data class EnableLocation(val intent: Intent): ActivityEvent
     data class ShowError(val message: String): ActivityEvent
 }

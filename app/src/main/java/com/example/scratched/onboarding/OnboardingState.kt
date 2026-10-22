@@ -12,6 +12,7 @@ sealed class OnboardingState {
     object ENABLE_BLUETOOTH: OnboardingState()
     object RUQUIRED_PERMISSION_REJECTED: OnboardingState()
     object LOCATION: OnboardingState()
+    object ENABLE_LOCATION: OnboardingState()
     object NOTIFICATION: OnboardingState()
     object ALL_SET: OnboardingState()
     object COMPLETED: OnboardingState()

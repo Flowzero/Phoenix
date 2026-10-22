@@ -1,18 +1,21 @@
-package com.example.scratched.mesh
+package com.example.scratched.utilities.bluetooth
+
+
+import android.util.Log
+import android.content.Intent
+import android.content.Context
+import android.content.pm.PackageManager
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.util.Log
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Interface of BluetoothAdapter that allows to achieve better testability since separating
- * Android specific code
+ * Android-specific code
  */
 
 interface BluetoothAdapterWrapper {
@@ -29,11 +32,14 @@ interface BluetoothAdapterWrapper {
  */
 
 class UsableBluetoothAdapter(private val context: Context): BluetoothAdapterWrapper {
-    private val bluetoothAdapter: BluetoothAdapter?
-        get() = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+    private val bluetoothAdapter: BluetoothAdapter? by lazy {
+        val bluetoothManager: BluetoothManager? = (
+                context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)
+        bluetoothManager?.adapter
+    }
 
     private val _currentBluetoothState = MutableStateFlow<BluetoothState>(BluetoothState.DISABLED)
-    // accessible from ViewModel
+    // public accessible
     val currentBluetoothState: StateFlow<BluetoothState> = _currentBluetoothState.asStateFlow()
 
     override fun isSupported(): Boolean {

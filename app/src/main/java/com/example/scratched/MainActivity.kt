@@ -22,15 +22,20 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.scratched.mesh.BluetoothStateManager
-import com.example.scratched.mesh.UsableBluetoothAdapter
+import com.example.scratched.utilities.stateManagers.BluetoothStateManager
+import com.example.scratched.utilities.bluetooth.UsableBluetoothAdapter
+import com.example.scratched.utilities.stateManagers.UsableLocationAdapter
+import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.AboutScreen
 import com.example.scratched.onboarding.AllSetScreen
+
 import com.example.scratched.onboarding.BluetoothPermissionScreen
 import com.example.scratched.onboarding.EnableBluetoothScreen
+import com.example.scratched.onboarding.EnableLocationScreen
 import com.example.scratched.onboarding.GrantPermissionsManually
 import com.example.scratched.onboarding.LocationPermissionScreen
 import com.example.scratched.onboarding.MainAppScreen
+
 import com.example.scratched.onboarding.NotificationPermissionScreen
 import com.example.scratched.onboarding.OnboardingState
 import com.example.scratched.onboarding.OnboardingPrefsRepository
@@ -39,6 +44,14 @@ import com.example.scratched.ui.theme.ScratchedTheme
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.launch
 
+import com.example.scratched.BleDeviceUiModel
+import com.example.scratched.BleScanStatus
+import com.example.scratched.MainScreenUiState
+import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+
 
 class MainActivity : ComponentActivity() {
 
@@ -46,18 +59,26 @@ class MainActivity : ComponentActivity() {
         const val TAG = "MainActivity"
     }
 
+    private val managerScope = CoroutineScope(Dispatchers.IO+ SupervisorJob())
+
     private val viewModel: MainViewModel by this.viewModels {
         MainViewModelFactory(
             permissionsManager = PermissionsManager(this),
-            bluetoothStateManager = BluetoothStateManager(UsableBluetoothAdapter(this)),
-            repository = OnboardingPrefsRepository(this)
+            bluetoothStateManager = BluetoothStateManager(
+                this,
+                UsableBluetoothAdapter(this)),
+            locationStateManager = LocationStateManager(UsableLocationAdapter(this)),
+            repository = OnboardingPrefsRepository(this),
+            gattClientManager = BluetoothGattClientManager(
+                context = this,
+                connectionScope = managerScope,
+                permissionsManager = PermissionsManager(this))
         )
     }
 
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
-        Log.d(TAG, "Result captured: $result")
         viewModel.onPermissionsResult(result)
     }
 
@@ -66,6 +87,12 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         val isSuccess = (result.resultCode == RESULT_OK)
         viewModel.onBluetoothEnableResult(isSuccess)
+    }
+
+    private val enableLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onLocationSettingsClosed()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,6 +137,9 @@ class MainActivity : ComponentActivity() {
             is ActivityEvent.EnableBluetooth -> {
                 enableBluetoothLauncher.launch(event.intent)
             }
+            is ActivityEvent.EnableLocation -> {
+                enableLocationLauncher.launch(event.intent)
+            }
             is ActivityEvent.ShowError -> {
                 Log.e(TAG, "Error: ${event.message}")
                 Toast.makeText(this, event.message, Toast.LENGTH_LONG).show()
@@ -123,6 +153,18 @@ class MainActivity : ComponentActivity() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // If user updated the Bluetooth state in settings
+        viewModel.refreshState()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Stop scanning if activity is killed! (FOR NOW: TEST IMPL!)
+        viewModel.onStopScanClicked()
     }
 
     @Composable
@@ -158,7 +200,10 @@ class MainActivity : ComponentActivity() {
                 modifier = modifier,
                 onContinue = { viewModel.onRequestPermissionsClicked() }
             )
-
+            is OnboardingState.ENABLE_LOCATION -> EnableLocationScreen(
+                modifier = modifier,
+                onContinue = { viewModel.onEnableLocationClicked() }
+            )
             is OnboardingState.NOTIFICATION -> NotificationPermissionScreen(
                 modifier = modifier,
                 onContinue = { viewModel.onRequestPermissionsClicked() },
@@ -168,11 +213,26 @@ class MainActivity : ComponentActivity() {
                 modifier = modifier,
                 onContinue = { viewModel.onNextClicked() }
             )
-            is OnboardingState.COMPLETED -> MainAppScreen(modifier = modifier)
+            is OnboardingState.COMPLETED -> MainAppScreenContent(viewModel, modifier)
+
             is OnboardingState.FAILED -> {
                 // FailedScreen(errorMessage = (onboardingState as OnboardingState.FAILED).errorMessage)
                 Log.e(TAG, "Onboarding failed: ${(onboardingState as OnboardingState.FAILED).errorMessage}")
             }
         }
+    }
+
+    @Composable
+    private fun MainAppScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
+        val uiState by viewModel.uiState.collectAsState()
+
+        MainAppScreen(
+            modifier = modifier,
+            uiState = uiState,
+            onStartScan = { viewModel.onStartScanClicked() },
+            onStopScan = { viewModel.onStopScanClicked() },
+            onDeviceClick = { device -> viewModel.onDeviceClick(device) },
+            onRestartOnboarding = { viewModel.onRestartOnboardingClick() }
+        )
     }
 }
