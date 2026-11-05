@@ -5,19 +5,17 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+import com.example.scratched.meshMVP.transport.ScanPhase
 import com.example.scratched.utilities.bluetooth.BluetoothState
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
-import com.example.scratched.onboarding.OnboardingPrefsRepository
 import com.example.scratched.onboarding.OnboardingState
-import com.example.scratched.onboarding.OnboardingStatusRepository
 import com.example.scratched.utilities.PermissionsManager
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,9 +38,9 @@ class MainViewModel(
     // accessible  from Activity
     val onboardingState: StateFlow<OnboardingState> = onboardingFlowCoordinator.currentState
 
-    private val _activityEvents = MutableSharedFlow<ActivityEvent>()
+    private val _activityEvents = Channel<ActivityEvent>(Channel.BUFFERED)
     // accessible from Activity
-    val activityEvents: SharedFlow<ActivityEvent> = _activityEvents.asSharedFlow()
+    val activityEvents = _activityEvents.receiveAsFlow()
 
     private val _uiState = MutableStateFlow(MainScreenUiState())
     val uiState: StateFlow<MainScreenUiState> = _uiState.asStateFlow()
@@ -55,7 +53,9 @@ class MainViewModel(
 
         viewModelScope.launch {
             bluetoothStatusManager.bluetoothStateFlow.collect { state ->
-                if (state == BluetoothState.DISABLED &&
+                updateBaseState()
+                if (state != BluetoothState.ENABLED) gattClientManager.stopScanning()
+                if (state != BluetoothState.ENABLED &&
                     onboardingState.value == OnboardingState.COMPLETED) {
 
                     onboardingFlowCoordinator.navigateToNextStep()
@@ -74,7 +74,22 @@ class MainViewModel(
                         ActivityEvent.ShowError(event.message)
                     }
                 }
-                _activityEvents.emit(activityEvent)
+                _activityEvents.send(activityEvent)
+            }
+        }
+
+        viewModelScope.launch {
+            gattClientManager.scanState.collect { state ->
+                val status = when (state.phase) {
+                    ScanPhase.IDLE -> BleScanStatus.IDLE
+                    ScanPhase.WAITING -> BleScanStatus.WAITING
+                    ScanPhase.SCANNING -> BleScanStatus.SCANNING
+                    ScanPhase.STOPPED -> BleScanStatus.STOPPED
+                    ScanPhase.PERMISSION_REQUIRED -> BleScanStatus.PERMISSION_REQUIRED
+                    ScanPhase.BLUETOOTH_DISABLED -> BleScanStatus.BLUETOOTH_DISABLED
+                    ScanPhase.ERROR -> BleScanStatus.ERROR
+                }
+                _uiState.update { it.copy(scanStatus = status, errorMessage = state.error) }
             }
         }
 
@@ -87,7 +102,11 @@ class MainViewModel(
                         rssi = newDevice.rssi,
                         lastSeenAtMillis = newDevice.lastSeenAtMillis,
                         scanCount = existingDevice.scanCount + 1,
-                        name = if (existingDevice.name.isNullOrBlank()) newDevice.name else existingDevice.name
+                        name = newDevice.name ?: existingDevice.name,
+                        txPower = newDevice.txPower,
+                        serviceUuids = newDevice.serviceUuids,
+                        manufacturerData = newDevice.manufacturerData,
+                        isConnectable = newDevice.isConnectable
                     )
                 } else {
                     newDevice
@@ -108,6 +127,7 @@ class MainViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        gattClientManager.close()
         bluetoothStatusManager.stopMonitoring()
     }
 
@@ -128,7 +148,7 @@ class MainViewModel(
     fun onBluetoothEnableResult(isSuccess: Boolean) {
         if (!isSuccess) {
             viewModelScope.launch {
-                _activityEvents.emit(
+                _activityEvents.send(
                     ActivityEvent.ShowError("User declined/Error happened: Bluetooth is required")
                 )
             }
@@ -142,10 +162,10 @@ class MainViewModel(
             val intent = bluetoothStatusManager.getEnableBluetoothIntent()
             if (intent != null) {
                 Log.d(TAG, "Emitting EnableBluetooth event")
-                _activityEvents.emit(ActivityEvent.EnableBluetooth(intent))
+                _activityEvents.send(ActivityEvent.EnableBluetooth(intent))
             } else {
                 Log.e(TAG, "Cannot get EnableBluetooth event")
-                _activityEvents.emit(ActivityEvent.ShowError("Unable to request EnableBluetooth"))
+                _activityEvents.send(ActivityEvent.ShowError("Unable to request EnableBluetooth"))
             }
         }
     }
@@ -155,10 +175,10 @@ class MainViewModel(
             val intent = locationStateManager.getEnableLocationIntent()
             if (intent != null) {
                 Log.d(TAG, "Emitting EnableLocation event")
-                _activityEvents.emit(ActivityEvent.EnableLocation(intent))
+                _activityEvents.send(ActivityEvent.EnableLocation(intent))
             } else {
                 Log.e(TAG, "Cannot get EnableLocation event")
-                _activityEvents.emit(ActivityEvent.ShowError("Unable to request EnableLocation"))
+                _activityEvents.send(ActivityEvent.ShowError("Unable to request EnableLocation"))
             }
         }
     }
@@ -168,7 +188,7 @@ class MainViewModel(
             if (locationStateManager.isEnabled()) {
                 onboardingFlowCoordinator.navigateToNextStep()
             } else {
-                _activityEvents.emit(
+                _activityEvents.send(
                     ActivityEvent.ShowError("User declined/Error happened: Location is required ")
                 )
             }
@@ -178,18 +198,20 @@ class MainViewModel(
     private fun updateBaseState() {
         _uiState.update {
             it.copy(
-                isBluetoothEnabled = true, // temp const val
+                isBluetoothEnabled = bluetoothStatusManager.isEnabled(),
                 hasRequiredPermissions = permissionsManager.areAllRequiredPermissionsGranted()
             )
         }
     }
 
     fun onRestartOnboardingClick() {
+        onStopScanClicked()
         onboardingFlowCoordinator.resetOnboarding()
         onboardingFlowCoordinator.startAppFlow()
     }
 
     fun onStartScanClicked() {
+        if (gattClientManager.scanState.value.phase in listOf(ScanPhase.SCANNING, ScanPhase.WAITING)) return
         updateBaseState()
         val currentState = _uiState.value
 
@@ -205,7 +227,6 @@ class MainViewModel(
         deviceMap.clear()
         _uiState.update {
             it.copy(
-                scanStatus = BleScanStatus.SCANNING,
                 scanStartedAtMillis = System.currentTimeMillis(),
                 devices = emptyList(),
                 discoveredDeviceCount = 0
@@ -227,5 +248,10 @@ class MainViewModel(
 
     fun refreshState() {
         updateBaseState()
+        if (!permissionsManager.areAllRequiredPermissionsGranted() || !bluetoothStatusManager.isEnabled() ||
+            (permissionsManager.requiresLocationServices() && !locationStateManager.isEnabled())) {
+            gattClientManager.stopScanning()
+        }
+        onboardingFlowCoordinator.refreshRequirements()
     }
 }

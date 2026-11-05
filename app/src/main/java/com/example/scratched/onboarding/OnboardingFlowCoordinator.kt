@@ -72,12 +72,6 @@ class OnboardingFlowCoordinator(
         val missingRequiredPermissions = permissionsManager.getMissingRequiredPermissions()
         Log.d(TAG, "Missing required permissions: $missingRequiredPermissions")
 
-        if (missingRequiredPermissions.isEmpty() && bluetoothStateManager.isEnabled()) {
-            Log.d(TAG, "All required permissions are granted and Bluetooth is enabled")
-            completeOnboarding()
-            return
-        }
-
         _currentState.value = getNextMissingState()
         Log.d(TAG, "Starting subsequent onboarding at state: ${_currentState.value}")
     }
@@ -93,8 +87,10 @@ class OnboardingFlowCoordinator(
             is OnboardingState.ENABLE_BLUETOOTH -> getNextMissingState()
             is OnboardingState.LOCATION -> getNextMissingState()
             is OnboardingState.ENABLE_LOCATION -> getNextMissingState()
-            is OnboardingState.NOTIFICATION -> OnboardingState.ALL_SET
-            is OnboardingState.ALL_SET -> OnboardingState.COMPLETED
+            is OnboardingState.NOTIFICATION -> getNextMissingState(skipNotification = true)
+            is OnboardingState.ALL_SET -> getNextMissingState(skipNotification = true).let {
+                if (it == OnboardingState.ALL_SET) OnboardingState.COMPLETED else it
+            }
             is OnboardingState.COMPLETED -> getNextMissingState()
             is OnboardingState.FAILED -> previousState // Stay on the error screen
             is OnboardingState.RUQUIRED_PERMISSION_REJECTED -> getNextMissingState()
@@ -103,7 +99,7 @@ class OnboardingFlowCoordinator(
         _currentState.value = newState
         Log.d(TAG, "New state evaluated: $newState")
 
-        if (previousState != currentState) {
+        if (previousState != newState) {
             Log.d(TAG, "SUCCESS: Navigated from $previousState to $newState")
         } else {
             Log.w(TAG, "WARNING: State did not change! Stuck at $newState")
@@ -114,7 +110,17 @@ class OnboardingFlowCoordinator(
         }
     }
 
-    private fun getNextMissingState(): OnboardingState {
+    fun refreshRequirements() {
+        if (_currentState.value == OnboardingState.COMPLETED) {
+            _currentState.value = getNextMissingState()
+        }
+    }
+
+    private fun getNextMissingState(skipNotification: Boolean = false): OnboardingState {
+        if (bluetoothStateManager.getCurrentBluetoothState() ==
+            com.example.scratched.utilities.bluetooth.BluetoothState.NOT_SUPPORTED) {
+            return OnboardingState.FAILED("Bluetooth LE is not supported on this device")
+        }
         val missingBluetooth = permissionsManager.getBluetoothPermissions()
             .any { !permissionsManager.isPermissionGranted(it) }
 
@@ -144,10 +150,10 @@ class OnboardingFlowCoordinator(
             missingLocation -> OnboardingState.LOCATION
 
             // if Location permission is granted but Location is not enabled yet
-            !missingLocation && !isLocationEnabled -> OnboardingState.ENABLE_LOCATION
+            permissionsManager.requiresLocationServices() && !missingLocation && !isLocationEnabled -> OnboardingState.ENABLE_LOCATION
 
             // if missing notification permissions and onboarding was not completed yet
-            missingNotification-> OnboardingState.NOTIFICATION
+            !skipNotification && missingNotification -> OnboardingState.NOTIFICATION
 
             // showing only for first time launch
             showAllSet -> OnboardingState.ALL_SET

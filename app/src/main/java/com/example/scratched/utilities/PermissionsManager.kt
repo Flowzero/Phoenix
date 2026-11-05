@@ -25,60 +25,15 @@ class PermissionsManager(private val context: Context) {
         private const val TAG = "PermissionsManager"
     }
 
-    fun getRequiredPermissions(): List<String> {
-        val permissions = mutableListOf<String>()
+    fun getRequiredPermissions(): List<String> = getBluetoothPermissions() + getLocationPermissions()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            permissions.addAll(listOf(
-                Manifest.permission.BLUETOOTH_ADVERTISE,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_SCAN
-            ))
-        // legacy Bluetooth permissions for API 30 and below
-        } else {
-            permissions.addAll(listOf(
-                Manifest.permission.BLUETOOTH,
-                Manifest.permission.BLUETOOTH_ADMIN
-            ))
-        }
-        permissions.addAll(listOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ))
-        return permissions
-    }
+    fun getOptionalPermissions(): List<String> = getNotificationPermissions()
 
-    fun getOptionalPermissions(): List<String> {
-        val optional = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            optional.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        return optional
-    }
+    fun getBluetoothPermissions(): List<String> = BlePermissionPolicy.bluetooth(Build.VERSION.SDK_INT)
 
-    fun getBluetoothPermissions(): List<String> {
-        val permissions = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            permissions.addAll(listOf(
-                Manifest.permission.BLUETOOTH_ADVERTISE,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_SCAN
-            ))
-        } else {
-            permissions.addAll(listOf(
-                Manifest.permission.BLUETOOTH,
-                Manifest.permission.BLUETOOTH_ADMIN
-            ))
-        }
-        return permissions
-    }
+    fun getLocationPermissions(): List<String> = BlePermissionPolicy.location(Build.VERSION.SDK_INT)
 
-    fun getLocationPermissions(): List<String> {
-        return listOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
-    }
+    fun requiresLocationServices(): Boolean = BlePermissionPolicy.requiresLocationServices(Build.VERSION.SDK_INT)
 
     fun getNotificationPermissions(): List<String> {
         val optional = mutableListOf<String>()

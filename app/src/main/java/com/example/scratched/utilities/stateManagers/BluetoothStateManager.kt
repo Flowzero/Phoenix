@@ -49,18 +49,27 @@ class BluetoothStateManager(
         }
     }
 
+    private var monitoring = false
+
     fun startMonitoring() {
+        if (monitoring) return
         val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
         ContextCompat.registerReceiver(
             context,
             bluetoothStateReceiver,
             filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED
+            // Bluetooth broadcasts may originate from a privileged Bluetooth process.
+            // Ignore intent extras and re-read the adapter to avoid trusting a forged state.
+            ContextCompat.RECEIVER_EXPORTED
         )
+        monitoring = true
+        _bluetoothStateFlow.value = bluetoothAdapter.getState()
         Log.d(TAG, "Started monitoring Bluetooth state")
     }
 
     fun stopMonitoring() {
+        if (!monitoring) return
+        monitoring = false
         try {
             context.unregisterReceiver(bluetoothStateReceiver)
             Log.d(TAG, "Stopped monitoring Bluetooth state")

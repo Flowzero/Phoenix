@@ -1097,7 +1097,7 @@ private fun ScanControlCard(
     onStartScan: () -> Unit,
     onStopScan: () -> Unit
 ) {
-    val isScanning = uiState.scanStatus == BleScanStatus.SCANNING
+    val isScanning = uiState.scanStatus in listOf(BleScanStatus.SCANNING, BleScanStatus.WAITING)
     val canStartScan = !isScanning &&
             uiState.isBluetoothEnabled &&
             uiState.hasRequiredPermissions
@@ -1585,6 +1585,7 @@ private fun scanStatusText(
     else -> when (uiState.scanStatus) {
         BleScanStatus.IDLE -> "Ready to scan"
         BleScanStatus.SCANNING -> "Scanning…"
+        BleScanStatus.WAITING -> "Waiting to restart scan…"
         BleScanStatus.STOPPED -> "Scan stopped"
         BleScanStatus.PERMISSION_REQUIRED -> "Permission required"
         BleScanStatus.BLUETOOTH_DISABLED -> "Bluetooth disabled"

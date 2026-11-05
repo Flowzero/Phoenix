@@ -43,7 +43,7 @@ class UsableBluetoothAdapter(private val context: Context): BluetoothAdapterWrap
     val currentBluetoothState: StateFlow<BluetoothState> = _currentBluetoothState.asStateFlow()
 
     override fun isSupported(): Boolean {
-        return (bluetoothAdapter != null)
+        return bluetoothAdapter != null && context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)
     }
 
     override fun isEnabled(): Boolean {
@@ -63,8 +63,7 @@ class UsableBluetoothAdapter(private val context: Context): BluetoothAdapterWrap
     }
 
     override fun getState(): BluetoothState {
-        if (!context.packageManager.hasSystemFeature(
-                PackageManager.FEATURE_BLUETOOTH_LE)) {
+        if (!isSupported()) {
             return BluetoothState.NOT_SUPPORTED
         }
         return try {

@@ -7,6 +7,7 @@ package com.example.scratched
 enum class BleScanStatus {
     IDLE,
     SCANNING,
+    WAITING,
     STOPPED,
     PERMISSION_REQUIRED,
     BLUETOOTH_DISABLED,
@@ -31,8 +32,8 @@ data class BleDeviceUiModel(
 
 data class MainScreenUiState(
     val scanStatus: BleScanStatus = BleScanStatus.IDLE,
-    val isBluetoothEnabled: Boolean = true,
-    val hasRequiredPermissions: Boolean = true,
+    val isBluetoothEnabled: Boolean = false,
+    val hasRequiredPermissions: Boolean = false,
     val errorMessage: String? = null,
     val devices: List<BleDeviceUiModel> = emptyList(),
     val discoveredDeviceCount: Int = 0,

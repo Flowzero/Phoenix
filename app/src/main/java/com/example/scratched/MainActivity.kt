@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -48,9 +49,6 @@ import com.example.scratched.BleDeviceUiModel
 import com.example.scratched.BleScanStatus
 import com.example.scratched.MainScreenUiState
 import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 
 
 class MainActivity : ComponentActivity() {
@@ -59,20 +57,17 @@ class MainActivity : ComponentActivity() {
         const val TAG = "MainActivity"
     }
 
-    private val managerScope = CoroutineScope(Dispatchers.IO+ SupervisorJob())
-
     private val viewModel: MainViewModel by this.viewModels {
         MainViewModelFactory(
-            permissionsManager = PermissionsManager(this),
+            permissionsManager = PermissionsManager(applicationContext),
             bluetoothStateManager = BluetoothStateManager(
-                this,
-                UsableBluetoothAdapter(this)),
-            locationStateManager = LocationStateManager(UsableLocationAdapter(this)),
-            repository = OnboardingPrefsRepository(this),
+                applicationContext,
+                UsableBluetoothAdapter(applicationContext)),
+            locationStateManager = LocationStateManager(UsableLocationAdapter(applicationContext)),
+            repository = OnboardingPrefsRepository(applicationContext),
             gattClientManager = BluetoothGattClientManager(
-                context = this,
-                connectionScope = managerScope,
-                permissionsManager = PermissionsManager(this))
+                context = applicationContext,
+                permissionsManager = PermissionsManager(applicationContext))
         )
     }
 
@@ -161,10 +156,10 @@ class MainActivity : ComponentActivity() {
         viewModel.refreshState()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        // Stop scanning if activity is killed! (FOR NOW: TEST IMPL!)
+    override fun onStop() {
+        // This discovery prototype has no foreground service; release the radio off-screen.
         viewModel.onStopScanClicked()
+        super.onStop()
     }
 
     @Composable
@@ -216,8 +211,7 @@ class MainActivity : ComponentActivity() {
             is OnboardingState.COMPLETED -> MainAppScreenContent(viewModel, modifier)
 
             is OnboardingState.FAILED -> {
-                // FailedScreen(errorMessage = (onboardingState as OnboardingState.FAILED).errorMessage)
-                Log.e(TAG, "Onboarding failed: ${(onboardingState as OnboardingState.FAILED).errorMessage}")
+                Text(text = (onboardingState as OnboardingState.FAILED).errorMessage, modifier = modifier)
             }
         }
     }
