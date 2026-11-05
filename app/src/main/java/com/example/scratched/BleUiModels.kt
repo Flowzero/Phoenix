@@ -11,6 +11,8 @@ enum class BleScanStatus {
     STOPPED,
     PERMISSION_REQUIRED,
     BLUETOOTH_DISABLED,
+    LOCATION_REQUIRED,
+    UNSUPPORTED,
     ERROR
 }
 
@@ -31,6 +33,7 @@ data class BleDeviceUiModel(
 }
 
 data class MainScreenUiState(
+    val showAllDevices: Boolean = false,
     val scanStatus: BleScanStatus = BleScanStatus.IDLE,
     val isBluetoothEnabled: Boolean = false,
     val hasRequiredPermissions: Boolean = false,

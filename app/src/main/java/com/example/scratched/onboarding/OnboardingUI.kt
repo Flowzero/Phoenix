@@ -73,6 +73,9 @@ import androidx.compose.material.icons.filled.Refresh
 
 
 import com.example.scratched.BleDeviceUiModel
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.example.scratched.BleScanStatus
 import com.example.scratched.MainScreenUiState
 
@@ -885,6 +888,7 @@ fun MainAppScreen(
     uiState: MainScreenUiState = MainScreenUiState(),
     onStartScan: () -> Unit = {},
     onStopScan: () -> Unit = {},
+    onShowAllDevicesChanged: (Boolean) -> Unit = {},
     onDeviceClick: (BleDeviceUiModel) -> Unit = {},
     onRestartOnboarding: () -> Unit = {}
 ) {
@@ -904,6 +908,7 @@ fun MainAppScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = MainScreenHorizontalPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -984,7 +989,8 @@ fun MainAppScreen(
                     ScanControlCard(
                         uiState = uiState,
                         onStartScan = onStartScan,
-                        onStopScan = onStopScan
+                        onStopScan = onStopScan,
+                        onShowAllDevicesChanged = onShowAllDevicesChanged
                     )
                 }
 
@@ -1043,10 +1049,7 @@ fun MainAppScreen(
                 }
             }
 
-            Spacer(
-                modifier = Modifier
-                    .weight(1f)
-            )
+            Spacer(modifier = Modifier.height(16.dp))
 
             /*
              * Кнопка повторного прохождения онбординга.
@@ -1095,7 +1098,8 @@ fun MainAppScreen(
 private fun ScanControlCard(
     uiState: MainScreenUiState,
     onStartScan: () -> Unit,
-    onStopScan: () -> Unit
+    onStopScan: () -> Unit,
+    onShowAllDevicesChanged: (Boolean) -> Unit
 ) {
     val isScanning = uiState.scanStatus in listOf(BleScanStatus.SCANNING, BleScanStatus.WAITING)
     val canStartScan = !isScanning &&
@@ -1160,6 +1164,18 @@ private fun ScanControlCard(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Show all BLE devices", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = uiState.showAllDevices,
+                    onCheckedChange = onShowAllDevicesChanged,
+                    enabled = !isScanning
+                )
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -1278,7 +1294,7 @@ private fun ScanDetailsCard(
             )
 
             ScanInfoRow(
-                label = "Unique devices",
+                label = "Devices in cache",
                 value = uiState.discoveredDeviceCount.toString()
             )
 
@@ -1589,16 +1605,13 @@ private fun scanStatusText(
         BleScanStatus.STOPPED -> "Scan stopped"
         BleScanStatus.PERMISSION_REQUIRED -> "Permission required"
         BleScanStatus.BLUETOOTH_DISABLED -> "Bluetooth disabled"
+        BleScanStatus.LOCATION_REQUIRED -> "Location services required"
+        BleScanStatus.UNSUPPORTED -> "Bluetooth LE unavailable"
         BleScanStatus.ERROR -> "Scan error"
     }
 }
 
-private fun formatMillis(
-    millis: Long
-): String {
-    val totalSeconds = millis / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-
-    return "%02d:%02d".format(minutes, seconds)
-}
+private fun formatMillis(millis: Long): String =
+    java.text.DateFormat.getDateTimeInstance(
+        java.text.DateFormat.SHORT, java.text.DateFormat.MEDIUM
+    ).format(java.util.Date(millis))

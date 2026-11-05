@@ -27,6 +27,8 @@ class PermissionsManager(private val context: Context) {
 
     fun getRequiredPermissions(): List<String> = getBluetoothPermissions() + getLocationPermissions()
 
+    fun hasScanPermissions(): Boolean = BlePermissionPolicy.scan(Build.VERSION.SDK_INT).all(::isPermissionGranted)
+
     fun getOptionalPermissions(): List<String> = getNotificationPermissions()
 
     fun getBluetoothPermissions(): List<String> = BlePermissionPolicy.bluetooth(Build.VERSION.SDK_INT)

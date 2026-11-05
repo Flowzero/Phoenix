@@ -73,7 +73,7 @@ class ScanSessionControllerTest {
         val f = Fixture()
         f.failure = SecurityException("revoked")
         f.controller.start()
-        assertEquals(ScanState(ScanPhase.ERROR, "revoked"), f.controller.state.value)
+        assertEquals(ScanState(ScanPhase.PERMISSION_REQUIRED, "Scan permission was revoked"), f.controller.state.value)
         assertFalse(f.controller.accepts(f.starts.single()))
         assertEquals(1, f.stops)
     }
@@ -115,4 +115,44 @@ class ScanSessionControllerTest {
         assertFalse(f.controller.accepts(old))
         assertTrue(f.controller.accepts(f.starts.last()))
     }
+    @Test fun closeCannotBeUndoneByReentrantStateObserver() {
+        var starts = 0
+        lateinit var controller: ScanSessionController
+        controller = ScanSessionController(
+            now = { 0L }, schedule = { _, _ -> {} },
+            startRadio = { starts++ }, stopRadio = {},
+            onStateChanged = { if (it.phase == ScanPhase.STOPPED) controller.start() }
+        )
+        controller.start()
+        controller.close()
+        assertEquals(1, starts)
+        assertEquals(ScanPhase.STOPPED, controller.state.value.phase)
+    }
+
+    @Test fun newSessionObserverCannotStartASecondSession() {
+        var starts = 0
+        lateinit var controller: ScanSessionController
+        controller = ScanSessionController(
+            now = { 0L }, schedule = { _, _ -> {} },
+            startRadio = { starts++ }, stopRadio = {},
+            onNewSession = { controller.start() }
+        )
+        controller.start()
+        assertEquals(1, starts)
+        assertEquals(ScanPhase.SCANNING, controller.state.value.phase)
+    }
+
+    @Test fun closeDuringNewSessionNotificationPreventsRadioStart() {
+        var starts = 0
+        lateinit var controller: ScanSessionController
+        controller = ScanSessionController(
+            now = { 0L }, schedule = { _, _ -> {} },
+            startRadio = { starts++ }, stopRadio = {},
+            onNewSession = { controller.close() }
+        )
+        controller.start()
+        assertEquals(0, starts)
+        assertEquals(ScanPhase.STOPPED, controller.state.value.phase)
+    }
+
 }

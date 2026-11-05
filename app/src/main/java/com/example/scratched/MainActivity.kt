@@ -48,7 +48,6 @@ import kotlinx.coroutines.launch
 import com.example.scratched.BleDeviceUiModel
 import com.example.scratched.BleScanStatus
 import com.example.scratched.MainScreenUiState
-import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
 
 
 class MainActivity : ComponentActivity() {
@@ -65,9 +64,7 @@ class MainActivity : ComponentActivity() {
                 UsableBluetoothAdapter(applicationContext)),
             locationStateManager = LocationStateManager(UsableLocationAdapter(applicationContext)),
             repository = OnboardingPrefsRepository(applicationContext),
-            gattClientManager = BluetoothGattClientManager(
-                context = applicationContext,
-                permissionsManager = PermissionsManager(applicationContext))
+            context = applicationContext
         )
     }
 
@@ -225,6 +222,7 @@ class MainActivity : ComponentActivity() {
             uiState = uiState,
             onStartScan = { viewModel.onStartScanClicked() },
             onStopScan = { viewModel.onStopScanClicked() },
+            onShowAllDevicesChanged = viewModel::onShowAllDevicesChanged,
             onDeviceClick = { device -> viewModel.onDeviceClick(device) },
             onRestartOnboarding = { viewModel.onRestartOnboardingClick() }
         )

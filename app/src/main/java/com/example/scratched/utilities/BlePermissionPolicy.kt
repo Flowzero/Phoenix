@@ -8,6 +8,9 @@ internal object BlePermissionPolicy {
         "android.permission.BLUETOOTH_SCAN"
     ) else listOf("android.permission.BLUETOOTH", "android.permission.BLUETOOTH_ADMIN")
 
+    fun scan(api: Int): List<String> = bluetooth(api)
+        .filterNot { it == "android.permission.BLUETOOTH_ADVERTISE" } + location(api)
+
     fun location(api: Int): List<String> = if (api < 31) listOf(
         "android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_FINE_LOCATION"
     ) else emptyList()
