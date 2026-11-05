@@ -79,7 +79,19 @@ class MainViewModel(
         }
 
         viewModelScope.launch {
-            gattClientManager.discoveredDevices.collect { newDevice ->
+            gattClientManager.discoveredDevices.collect { result ->
+                val newDevice = BleDeviceUiModel(
+                    address = result.address,
+                    name = result.name,
+                    rssi = result.rssi,
+                    txPower = result.txPower,
+                    serviceUuids = result.serviceUuids,
+                    manufacturerData = result.manufacturerData,
+                    isConnectable = result.isConnectable,
+                    firstSeenAtMillis = result.observedAtMillis,
+                    lastSeenAtMillis = result.observedAtMillis,
+                    scanCount = 1
+                )
                 val existingDevice = deviceMap[newDevice.address]
 
                 val updatedDevice = if (existingDevice != null) {

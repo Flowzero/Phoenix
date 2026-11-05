@@ -11,7 +11,6 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
-import com.example.scratched.BleDeviceUiModel
 
 import com.example.scratched.constants.AppConstants
 import com.example.scratched.utilities.PermissionsManager
@@ -38,8 +37,8 @@ class BluetoothGattClientManager(
     }
 
     // <TEST IMPLEMENTATION> -----------------------------------------------------------------------
-    private val _discoveredDevices = MutableSharedFlow<BleDeviceUiModel>(extraBufferCapacity = 64)
-    val discoveredDevices: SharedFlow<BleDeviceUiModel> = _discoveredDevices.asSharedFlow()
+    private val _discoveredDevices = MutableSharedFlow<BleScanResult>(extraBufferCapacity = 64)
+    val discoveredDevices: SharedFlow<BleScanResult> = _discoveredDevices.asSharedFlow()
     // </TEST IMPLEMENTATION> ----------------------------------------------------------------------
 
     private var isScanning = false
@@ -121,18 +120,18 @@ class BluetoothGattClientManager(
         //if (!hasOurService) return
 
     // <TEST IMPLEMENTATION> -----------------------------------------------------------------------
-        val uiModel = parseScanResultToUiModel(device.address, device.name, result.rssi, scanRecord)
+        val scanResult = parseScanResult(device.address, device.name, result.rssi, scanRecord)
         connectionScope.launch {
-            _discoveredDevices.emit(uiModel)
+            _discoveredDevices.emit(scanResult)
         }
     }
 
-    private fun parseScanResultToUiModel(
+    private fun parseScanResult(
         address: String,
         name: String?,
         rssi: Int,
         scanRecord: android.bluetooth.le.ScanRecord?
-    ): BleDeviceUiModel {
+    ): BleScanResult {
         val currentTime = System.currentTimeMillis()
 
         val serviceUuids = scanRecord?.serviceUuids?.map { it.uuid.toString() } ?: emptyList()
@@ -144,7 +143,7 @@ class BluetoothGattClientManager(
             }
         }
 
-        return BleDeviceUiModel(
+        return BleScanResult(
             address = address,
             name = name,
             rssi = rssi,
@@ -152,9 +151,7 @@ class BluetoothGattClientManager(
             serviceUuids = serviceUuids,
             manufacturerData = manufacturerData,
             isConnectable = true, // temp const val
-            firstSeenAtMillis = currentTime,
-            lastSeenAtMillis = currentTime,
-            scanCount = 1
+            observedAtMillis = currentTime
         )
     }
     // </TEST IMPLEMENTATION> ----------------------------------------------------------------------
