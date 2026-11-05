@@ -7,6 +7,7 @@ import android.util.Log
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.utilities.PermissionsManager
+import com.example.scratched.utilities.bluetooth.BluetoothState
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,12 +73,6 @@ class OnboardingFlowCoordinator(
         val missingRequiredPermissions = permissionsManager.getMissingRequiredPermissions()
         Log.d(TAG, "Missing required permissions: $missingRequiredPermissions")
 
-        if (missingRequiredPermissions.isEmpty() && bluetoothStateManager.isEnabled()) {
-            Log.d(TAG, "All required permissions are granted and Bluetooth is enabled")
-            completeOnboarding()
-            return
-        }
-
         _currentState.value = getNextMissingState()
         Log.d(TAG, "Starting subsequent onboarding at state: ${_currentState.value}")
     }
@@ -103,7 +98,7 @@ class OnboardingFlowCoordinator(
         _currentState.value = newState
         Log.d(TAG, "New state evaluated: $newState")
 
-        if (previousState != currentState) {
+        if (previousState != newState) {
             Log.d(TAG, "SUCCESS: Navigated from $previousState to $newState")
         } else {
             Log.w(TAG, "WARNING: State did not change! Stuck at $newState")
@@ -115,6 +110,10 @@ class OnboardingFlowCoordinator(
     }
 
     private fun getNextMissingState(): OnboardingState {
+        if (bluetoothStateManager.getCurrentBluetoothState() == BluetoothState.NOT_SUPPORTED) {
+            return OnboardingState.FAILED("Bluetooth is not supported on this device")
+        }
+
         val missingBluetooth = permissionsManager.getBluetoothPermissions()
             .any { !permissionsManager.isPermissionGranted(it) }
 

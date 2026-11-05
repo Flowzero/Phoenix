@@ -63,16 +63,16 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by this.viewModels {
         MainViewModelFactory(
-            permissionsManager = PermissionsManager(this),
+            permissionsManager = PermissionsManager(applicationContext),
             bluetoothStateManager = BluetoothStateManager(
-                this,
-                UsableBluetoothAdapter(this)),
-            locationStateManager = LocationStateManager(UsableLocationAdapter(this)),
-            repository = OnboardingPrefsRepository(this),
+                applicationContext,
+                UsableBluetoothAdapter(applicationContext)),
+            locationStateManager = LocationStateManager(UsableLocationAdapter(applicationContext)),
+            repository = OnboardingPrefsRepository(applicationContext),
             gattClientManager = BluetoothGattClientManager(
-                context = this,
+                context = applicationContext,
                 connectionScope = managerScope,
-                permissionsManager = PermissionsManager(this))
+                permissionsManager = PermissionsManager(applicationContext))
         )
     }
 
