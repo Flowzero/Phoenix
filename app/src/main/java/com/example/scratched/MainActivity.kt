@@ -48,6 +48,7 @@ import com.example.scratched.BleDeviceUiModel
 import com.example.scratched.BleScanStatus
 import com.example.scratched.MainScreenUiState
 import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -72,7 +73,10 @@ class MainActivity : ComponentActivity() {
             gattClientManager = BluetoothGattClientManager(
                 context = this,
                 connectionScope = managerScope,
-                permissionsManager = PermissionsManager(this))
+                permissionsManager = PermissionsManager(this)),
+            gattServerManager = BluetoothGattServerManager(
+                context = applicationContext,
+                permissionsManager = PermissionsManager(applicationContext))
         )
     }
 
@@ -161,10 +165,11 @@ class MainActivity : ComponentActivity() {
         viewModel.refreshState()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        // Stop scanning if activity is killed! (FOR NOW: TEST IMPL!)
+    override fun onStop() {
+        // These debug operations run only while the screen is visible.
         viewModel.onStopScanClicked()
+        viewModel.onStopAdvertisingClicked()
+        super.onStop()
     }
 
     @Composable
@@ -231,6 +236,8 @@ class MainActivity : ComponentActivity() {
             uiState = uiState,
             onStartScan = { viewModel.onStartScanClicked() },
             onStopScan = { viewModel.onStopScanClicked() },
+            onStartAdvertising = viewModel::onStartAdvertisingClicked,
+            onStopAdvertising = viewModel::onStopAdvertisingClicked,
             onDeviceClick = { device -> viewModel.onDeviceClick(device) },
             onRestartOnboarding = { viewModel.onRestartOnboardingClick() }
         )

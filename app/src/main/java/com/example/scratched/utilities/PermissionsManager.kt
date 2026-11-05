@@ -105,6 +105,15 @@ class PermissionsManager(private val context: Context) {
         return permissions.any { !isPermissionGranted(it) }
     }
 
+    fun hasAdvertisingPermissions(): Boolean {
+        val required = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            listOf(Manifest.permission.BLUETOOTH_ADVERTISE, Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            listOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN)
+        }
+        return required.all { isPermissionGranted(it) }
+    }
+
     fun hasBluetoothPermissions(): Boolean {
         return getBluetoothPermissions().all { isPermissionGranted(it) }
     }

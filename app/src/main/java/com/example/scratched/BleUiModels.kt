@@ -23,13 +23,19 @@ data class BleDeviceUiModel(
     val isConnectable: Boolean?,
     val firstSeenAtMillis: Long,
     val lastSeenAtMillis: Long,
-    val scanCount: Int
+    val scanCount: Int,
+    val serviceData: Map<String, ByteArray> = emptyMap()
 ) {
     val displayName: String
         get() = name?.takeIf { it.isNotBlank() } ?: "Unknown device"
 }
 
 data class MainScreenUiState(
+    val isAdvertising: Boolean = false,
+    val isAdvertisingStarting: Boolean = false,
+    val advertisingError: String? = null,
+    val hasAdvertisingPermissions: Boolean = false,
+    val advertisedDeviceName: String? = null,
     val scanStatus: BleScanStatus = BleScanStatus.IDLE,
     val isBluetoothEnabled: Boolean = true,
     val hasRequiredPermissions: Boolean = true,

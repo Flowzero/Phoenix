@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
+import com.example.scratched.meshMVP.transport.AdvertisingPhase
 import com.example.scratched.utilities.bluetooth.BluetoothState
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
@@ -31,7 +33,8 @@ class MainViewModel(
 
     //TEST
     private val permissionsManager: PermissionsManager,
-    private val gattClientManager: BluetoothGattClientManager
+    private val gattClientManager: BluetoothGattClientManager,
+    private val gattServerManager: BluetoothGattServerManager
 ) : ViewModel() {
     companion object {
         const val TAG = "MainViewModel"
@@ -55,6 +58,8 @@ class MainViewModel(
 
         viewModelScope.launch {
             bluetoothStatusManager.bluetoothStateFlow.collect { state ->
+                updateBaseState()
+                if (state != BluetoothState.ENABLED) gattServerManager.stopAdvertising()
                 if (state == BluetoothState.DISABLED &&
                     onboardingState.value == OnboardingState.COMPLETED) {
 
@@ -79,6 +84,24 @@ class MainViewModel(
         }
 
         viewModelScope.launch {
+            gattServerManager.advertisingState.collect { state ->
+                _uiState.update {
+                    it.copy(
+                        isAdvertising = state.phase == AdvertisingPhase.ACTIVE,
+                        isAdvertisingStarting = state.phase == AdvertisingPhase.STARTING,
+                        advertisingError = state.error,
+                        advertisedDeviceName = gattServerManager.advertisedDeviceName
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            gattClientManager.scanError.collect { error ->
+                if (error != null) _uiState.update { it.copy(scanStatus = BleScanStatus.ERROR, errorMessage = error) }
+            }
+        }
+
+        viewModelScope.launch {
             gattClientManager.discoveredDevices.collect { result ->
                 val newDevice = BleDeviceUiModel(
                     address = result.address,
@@ -90,7 +113,8 @@ class MainViewModel(
                     isConnectable = result.isConnectable,
                     firstSeenAtMillis = result.observedAtMillis,
                     lastSeenAtMillis = result.observedAtMillis,
-                    scanCount = 1
+                    scanCount = 1,
+                    serviceData = result.serviceData
                 )
                 val existingDevice = deviceMap[newDevice.address]
 
@@ -99,7 +123,11 @@ class MainViewModel(
                         rssi = newDevice.rssi,
                         lastSeenAtMillis = newDevice.lastSeenAtMillis,
                         scanCount = existingDevice.scanCount + 1,
-                        name = if (existingDevice.name.isNullOrBlank()) newDevice.name else existingDevice.name
+                        name = newDevice.name ?: existingDevice.name,
+                        txPower = newDevice.txPower ?: existingDevice.txPower,
+                        isConnectable = newDevice.isConnectable,
+                        serviceUuids = (existingDevice.serviceUuids + newDevice.serviceUuids).distinct(),
+                        serviceData = existingDevice.serviceData + newDevice.serviceData
                     )
                 } else {
                     newDevice
@@ -120,6 +148,8 @@ class MainViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        gattServerManager.close()
+        gattClientManager.stopScanning()
         bluetoothStatusManager.stopMonitoring()
     }
 
@@ -135,6 +165,7 @@ class MainViewModel(
 
     fun onPermissionsResult(result: Map<String, Boolean>) {
         onboardingFlowCoordinator.onHandlePermissionsResult(result)
+        updateBaseState()
     }
 
     fun onBluetoothEnableResult(isSuccess: Boolean) {
@@ -190,13 +221,16 @@ class MainViewModel(
     private fun updateBaseState() {
         _uiState.update {
             it.copy(
-                isBluetoothEnabled = true, // temp const val
-                hasRequiredPermissions = permissionsManager.areAllRequiredPermissionsGranted()
+                isBluetoothEnabled = bluetoothStatusManager.isEnabled(),
+                hasRequiredPermissions = permissionsManager.areAllRequiredPermissionsGranted(),
+                hasAdvertisingPermissions = permissionsManager.hasAdvertisingPermissions()
             )
         }
     }
 
     fun onRestartOnboardingClick() {
+        onStopScanClicked()
+        onStopAdvertisingClicked()
         onboardingFlowCoordinator.resetOnboarding()
         onboardingFlowCoordinator.startAppFlow()
     }
@@ -218,6 +252,7 @@ class MainViewModel(
         _uiState.update {
             it.copy(
                 scanStatus = BleScanStatus.SCANNING,
+                errorMessage = null,
                 scanStartedAtMillis = System.currentTimeMillis(),
                 devices = emptyList(),
                 discoveredDeviceCount = 0
@@ -232,6 +267,13 @@ class MainViewModel(
         _uiState.update { it.copy(scanStatus = BleScanStatus.STOPPED) }
     }
 
+    fun onStartAdvertisingClicked() {
+        updateBaseState()
+        gattServerManager.startAdvertising()
+    }
+
+    fun onStopAdvertisingClicked() = gattServerManager.stopAdvertising()
+
     fun onDeviceClick(device: BleDeviceUiModel) {
         Log.d(TAG, "Device clicked: ${device.displayName} (${device.address})")
         // TODO: call gattClientManager.connectToDevice(device.address)
@@ -239,5 +281,8 @@ class MainViewModel(
 
     fun refreshState() {
         updateBaseState()
+        if (!permissionsManager.hasAdvertisingPermissions() || !bluetoothStatusManager.isEnabled()) {
+            gattServerManager.stopAdvertising()
+        }
     }
 }

@@ -14,8 +14,11 @@ import android.util.Log
 
 import com.example.scratched.constants.AppConstants
 import com.example.scratched.utilities.PermissionsManager
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -41,6 +44,11 @@ class BluetoothGattClientManager(
     val discoveredDevices: SharedFlow<BleScanResult> = _discoveredDevices.asSharedFlow()
     // </TEST IMPLEMENTATION> ----------------------------------------------------------------------
 
+    private val _scanError = MutableStateFlow<String?>(null)
+    val scanError = _scanError.asStateFlow()
+    private var pendingScanJob: Job? = null
+    private var scanGeneration = 0L
+    private var activeScanner: BluetoothLeScanner? = null
     private var isScanning = false
     private var lastScanTime = 0L
 
@@ -54,9 +62,8 @@ class BluetoothGattClientManager(
     private val bluetoothAdapter: BluetoothAdapter? =
         (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
 
-    private val bleScanner: BluetoothLeScanner? by lazy {
-        bluetoothAdapter?.bluetoothLeScanner
-    }
+    private val bleScanner: BluetoothLeScanner?
+        get() = bluetoothAdapter?.bluetoothLeScanner
 
     private val scanFilters = listOf(
         ScanFilter
@@ -71,14 +78,13 @@ class BluetoothGattClientManager(
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            with(result.device) {
-                Log.i("ScanCallback", "Found BLE device.\nName: ${this?.name ?: "Unnamed"}\nAddress: ${this?.address}")
-            }
             handleScanResult(result)
         }
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
+            stopScanning()
+            _scanError.value = "BLE scan failed (Android code $errorCode)"
 
             when (errorCode) {
                 SCAN_FAILED_ALREADY_STARTED -> {
@@ -108,29 +114,24 @@ class BluetoothGattClientManager(
     }
 
     private fun handleScanResult(result: ScanResult) {
-        val device = result.device
-        val rssi = result.device
-        val deviceAddress = device.address
         val scanRecord = result.scanRecord
+        val serviceUuid = ParcelUuid(AppConstants.GATT.SERVICE_UUID)
+        val hasOurService = scanRecord?.serviceUuids?.contains(serviceUuid) == true ||
+            scanRecord?.getServiceData(serviceUuid) != null
+        if (!hasOurService) return
 
-        // process only devices that have our service UUID
-        val hasOurService = scanRecord?.serviceUuids?.any {
-            it.uuid == AppConstants.GATT.SERVICE_UUID
-        } == true
-        //if (!hasOurService) return
-
-    // <TEST IMPLEMENTATION> -----------------------------------------------------------------------
-        val scanResult = parseScanResult(device.address, device.name, result.rssi, scanRecord)
-        connectionScope.launch {
-            _discoveredDevices.emit(scanResult)
-        }
+        val name = PhoenixAdvertisement.deviceName(scanRecord?.getServiceData(serviceUuid))
+            ?: scanRecord?.deviceName
+        val scanResult = parseScanResult(result.device.address, name, result.rssi, scanRecord, result.isConnectable)
+        connectionScope.launch { _discoveredDevices.emit(scanResult) }
     }
 
     private fun parseScanResult(
         address: String,
         name: String?,
         rssi: Int,
-        scanRecord: android.bluetooth.le.ScanRecord?
+        scanRecord: android.bluetooth.le.ScanRecord?,
+        isConnectable: Boolean
     ): BleScanResult {
         val currentTime = System.currentTimeMillis()
 
@@ -147,21 +148,27 @@ class BluetoothGattClientManager(
             address = address,
             name = name,
             rssi = rssi,
-            txPower = scanRecord?.txPowerLevel,
+            txPower = scanRecord?.txPowerLevel?.takeUnless { it == Int.MIN_VALUE },
             serviceUuids = serviceUuids,
             manufacturerData = manufacturerData,
-            isConnectable = true, // temp const val
-            observedAtMillis = currentTime
+            isConnectable = isConnectable,
+            observedAtMillis = currentTime,
+            serviceData = scanRecord?.serviceData?.mapKeys { it.key.uuid.toString() }
+                ?.mapValues { it.value.copyOf() } ?: emptyMap()
         )
     }
     // </TEST IMPLEMENTATION> ----------------------------------------------------------------------
 
-    fun startScanning() {
+    @Synchronized fun startScanning() {
+        if (isScanning || pendingScanJob?.isActive == true) return
+        _scanError.value = null
         if (!permissionsManager.areAllRequiredPermissionsGranted()) {
+            _scanError.value = "Required permissions are not granted"
             Log.e(TAG, "Required permissions are not granted!")
             return
         }
         if (bluetoothAdapter == null) {
+            _scanError.value = "Bluetooth adapter is unavailable"
             Log.e(TAG, "Bluetooth adapter is NULL! Cannot perform a scan")
             return
         }
@@ -178,10 +185,14 @@ class BluetoothGattClientManager(
             val remainingWait = scanRateLimit - timeSinceLastStart
             Log.w(TAG, "Need to wait ${remainingWait}ms before starting new scan")
 
-            connectionScope.launch {
+            val generation = scanGeneration
+            pendingScanJob = connectionScope.launch {
                 delay(remainingWait)
-                if (!isScanning) {
-                    startScanning()
+                synchronized(this@BluetoothGattClientManager) {
+                    if (generation == scanGeneration) {
+                        pendingScanJob = null
+                        startScanning()
+                    }
                 }
             }
             return
@@ -193,35 +204,32 @@ class BluetoothGattClientManager(
             lastScanTime = currentTime
             isScanning = true
 
-            // null scanFilters for all devices
-            bleScanner?.startScan(null, scanSettings, scanCallback)
+            val scanner = bleScanner ?: error("BLE scanner is unavailable. Enable Bluetooth")
+            activeScanner = scanner
+            scanner.startScan(scanFilters, scanSettings, scanCallback)
             Log.d(TAG, "BLE scan started successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Exception starting scan: ${e.message}")
-            isScanning = false
+            stopScanning()
+            _scanError.value = e.message ?: "Unable to start BLE scan"
         }
 
     }
 
-    fun stopScanning() {
-        if (bluetoothAdapter == null){
-            return
-        }
-        if (!permissionsManager.hasBluetoothPermissions()) {
-            return
-        }
-
-        if (isScanning) {
+    @Synchronized fun stopScanning() {
+        scanGeneration++
+        pendingScanJob?.cancel()
+        pendingScanJob = null
+        val scanner = activeScanner
+        activeScanner = null
+        isScanning = false
+        if (scanner != null) {
             try {
-                scanCallback.let {
-                    bleScanner?.stopScan(it)
-                    Log.d(TAG, "BLE scan stopped successfully")
-                }
+                scanner.stopScan(scanCallback)
+                Log.d(TAG, "BLE scan stopped successfully")
             } catch (e: Exception) {
                 Log.w(TAG, "Error stopping scan: ${e.message}")
             }
-
-            isScanning = false
         }
     }
 }

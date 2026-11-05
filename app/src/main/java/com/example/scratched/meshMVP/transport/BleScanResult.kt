@@ -9,5 +9,6 @@ data class BleScanResult(
     val serviceUuids: List<String>,
     val manufacturerData: Map<Int, ByteArray>,
     val isConnectable: Boolean?,
-    val observedAtMillis: Long
+    val observedAtMillis: Long,
+    val serviceData: Map<String, ByteArray> = emptyMap()
 )

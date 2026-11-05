@@ -7,6 +7,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -885,6 +887,8 @@ fun MainAppScreen(
     uiState: MainScreenUiState = MainScreenUiState(),
     onStartScan: () -> Unit = {},
     onStopScan: () -> Unit = {},
+    onStartAdvertising: () -> Unit = {},
+    onStopAdvertising: () -> Unit = {},
     onDeviceClick: (BleDeviceUiModel) -> Unit = {},
     onRestartOnboarding: () -> Unit = {}
 ) {
@@ -904,6 +908,7 @@ fun MainAppScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = MainScreenHorizontalPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -961,6 +966,9 @@ fun MainAppScreen(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
+
+                AdvertisingControlCard(uiState, onStartAdvertising, onStopAdvertising)
+                Spacer(modifier = Modifier.height(16.dp))
 
                 /*
                  * Карточка управления сканированием.
@@ -1043,10 +1051,7 @@ fun MainAppScreen(
                 }
             }
 
-            Spacer(
-                modifier = Modifier
-                    .weight(1f)
-            )
+            Spacer(modifier = Modifier.height(16.dp))
 
             /*
              * Кнопка повторного прохождения онбординга.
@@ -1087,6 +1092,46 @@ fun MainAppScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun AdvertisingControlCard(
+    uiState: MainScreenUiState,
+    onStartAdvertising: () -> Unit,
+    onStopAdvertising: () -> Unit
+) {
+    val active = uiState.isAdvertising || uiState.isAdvertisingStarting
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Реклама Phoenix", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = uiState.advertisedDeviceName ?: "Phoenix",
+                fontFamily = FontFamily.Monospace
+            )
+            Text(when {
+                uiState.isAdvertisingStarting -> "Запускается…"
+                uiState.isAdvertising -> "Реклама включена. Найдите это имя на втором телефоне."
+                uiState.advertisingError != null -> "Ошибка рекламы"
+                else -> "Реклама выключена"
+            })
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onStartAdvertising,
+                    enabled = !active && uiState.isBluetoothEnabled && uiState.hasAdvertisingPermissions,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Рекламировать") }
+                OutlinedButton(
+                    onClick = onStopAdvertising,
+                    enabled = active,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Остановить") }
+            }
+            if (!uiState.hasAdvertisingPermissions) {
+                ScanWarning("Выдайте разрешение на рекламу Bluetooth в настройках приложения")
+            }
+            uiState.advertisingError?.let { ScanWarning(it) }
         }
     }
 }
@@ -1183,7 +1228,7 @@ private fun ScanControlCard(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    Text(text = "Start scanning")
+                    Text(text = "Сканировать")
                 }
 
                 OutlinedButton(
@@ -1464,6 +1509,15 @@ private fun DeviceInfoGrid(
                 ?.joinToString(separator = ", ") { "0x%04X".format(it) }
                 ?: "None"
         )
+
+        device.serviceData.forEach { (uuid, bytes) ->
+            Text("Service data: $uuid", style = MaterialTheme.typography.bodySmall)
+            Text(
+                bytes.joinToString(" ") { "%02X".format(it) },
+                fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
 
         ScanInfoRow(
             label = "First seen",
