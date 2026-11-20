@@ -889,6 +889,7 @@ fun MainAppScreen(
     onStopScan: () -> Unit = {},
     onStartAdvertising: () -> Unit = {},
     onStopAdvertising: () -> Unit = {},
+    onHostChat: () -> Unit = {},
     onDeviceClick: (BleDeviceUiModel) -> Unit = {},
     onRestartOnboarding: () -> Unit = {}
 ) {
@@ -967,6 +968,10 @@ fun MainAppScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                Button(onClick = onHostChat, enabled = uiState.isBluetoothEnabled && uiState.hasAdvertisingPermissions) {
+                    Text("Открыть прямой чат")
+                }
+                Text("Чтобы присоединиться, запустите сканирование и выберите телефон собеседника.")
                 AdvertisingControlCard(uiState, onStartAdvertising, onStopAdvertising)
                 Spacer(modifier = Modifier.height(16.dp))
 

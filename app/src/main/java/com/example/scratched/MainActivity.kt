@@ -1,6 +1,5 @@
 package com.example.scratched
 
-
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -49,6 +48,8 @@ import com.example.scratched.BleScanStatus
 import com.example.scratched.MainScreenUiState
 import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
 import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
+import com.example.scratched.meshMVP.transport.chat.ChatPhase
+import com.example.scratched.meshMVP.transport.chat.DirectChat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -63,7 +64,9 @@ class MainActivity : ComponentActivity() {
     private val managerScope = CoroutineScope(Dispatchers.IO+ SupervisorJob())
 
     private val viewModel: MainViewModel by this.viewModels {
+        val advertiser = BluetoothGattServerManager(applicationContext, PermissionsManager(applicationContext))
         MainViewModelFactory(
+            chat = DirectChat(applicationContext, advertiser),
             permissionsManager = PermissionsManager(this),
             bluetoothStateManager = BluetoothStateManager(
                 this,
@@ -74,9 +77,7 @@ class MainActivity : ComponentActivity() {
                 context = this,
                 connectionScope = managerScope,
                 permissionsManager = PermissionsManager(this)),
-            gattServerManager = BluetoothGattServerManager(
-                context = applicationContext,
-                permissionsManager = PermissionsManager(applicationContext))
+            gattServerManager = advertiser
         )
     }
 
@@ -168,7 +169,10 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         // These debug operations run only while the screen is visible.
         viewModel.onStopScanClicked()
-        viewModel.onStopAdvertisingClicked()
+        if (!isChangingConfigurations) {
+            viewModel.chat.interrupt("Чат завершён при выходе из приложения")
+            viewModel.onStopAdvertisingClicked()
+        }
         super.onStop()
     }
 
@@ -231,7 +235,13 @@ class MainActivity : ComponentActivity() {
     private fun MainAppScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         val uiState by viewModel.uiState.collectAsState()
 
+        val chat by viewModel.chat.state.collectAsState()
+        if (chat.phase != ChatPhase.CLOSED) {
+            DirectChatScreen(chat, viewModel.chat::send, viewModel.chat::close, modifier)
+            return
+        }
         MainAppScreen(
+            onHostChat = viewModel::hostChat,
             modifier = modifier,
             uiState = uiState,
             onStartScan = { viewModel.onStartScanClicked() },

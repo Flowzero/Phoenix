@@ -1,11 +1,11 @@
 package com.example.scratched
 
-
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
 import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
+import com.example.scratched.meshMVP.transport.chat.DirectChat
 import com.example.scratched.meshMVP.transport.AdvertisingPhase
 import com.example.scratched.utilities.bluetooth.BluetoothState
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
@@ -34,6 +34,7 @@ class MainViewModel(
     //TEST
     private val permissionsManager: PermissionsManager,
     private val gattClientManager: BluetoothGattClientManager,
+    val chat: DirectChat,
     private val gattServerManager: BluetoothGattServerManager
 ) : ViewModel() {
     companion object {
@@ -59,7 +60,10 @@ class MainViewModel(
         viewModelScope.launch {
             bluetoothStatusManager.bluetoothStateFlow.collect { state ->
                 updateBaseState()
-                if (state != BluetoothState.ENABLED) gattServerManager.stopAdvertising()
+                if (state != BluetoothState.ENABLED) {
+                    chat.interrupt("Bluetooth выключен")
+                    gattServerManager.stopAdvertising()
+                }
                 if (state == BluetoothState.DISABLED &&
                     onboardingState.value == OnboardingState.COMPLETED) {
 
@@ -85,6 +89,9 @@ class MainViewModel(
 
         viewModelScope.launch {
             gattServerManager.advertisingState.collect { state ->
+                if (state.phase == AdvertisingPhase.ERROR) {
+                    chat.advertisingFailed(state.error ?: "Не удалось запустить рекламу Bluetooth")
+                }
                 _uiState.update {
                     it.copy(
                         isAdvertising = state.phase == AdvertisingPhase.ACTIVE,
@@ -148,6 +155,7 @@ class MainViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        chat.close()
         gattServerManager.close()
         gattClientManager.stopScanning()
         bluetoothStatusManager.stopMonitoring()
@@ -274,9 +282,16 @@ class MainViewModel(
 
     fun onStopAdvertisingClicked() = gattServerManager.stopAdvertising()
 
+    fun hostChat() {
+        onStopScanClicked()
+        onStopAdvertisingClicked()
+        chat.host()
+    }
+
     fun onDeviceClick(device: BleDeviceUiModel) {
-        Log.d(TAG, "Device clicked: ${device.displayName} (${device.address})")
-        // TODO: call gattClientManager.connectToDevice(device.address)
+        onStopScanClicked()
+        onStopAdvertisingClicked()
+        chat.connect(device.address)
     }
 
     fun refreshState() {
