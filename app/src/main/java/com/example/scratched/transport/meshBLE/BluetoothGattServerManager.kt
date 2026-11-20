@@ -1,6 +1,8 @@
-package com.example.scratched.meshMVP.transport
+package com.example.scratched.transport.meshBLE
 
+import android.util.Log
 import android.annotation.SuppressLint
+
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
@@ -9,14 +11,24 @@ import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.ParcelUuid
-import android.util.Log
 import com.example.scratched.constants.AppConstants
+import com.example.scratched.user.UserProfile
+
+import com.example.scratched.user.UserProfileRepository
+
 import com.example.scratched.utilities.PermissionsManager
-import java.security.SecureRandom
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class AdvertisingPhase { IDLE, STARTING, ACTIVE, STOPPED, ERROR }
+
+enum class AdvertisingPhase {
+    IDLE,
+    STARTING,
+    ACTIVE,
+    STOPPED,
+    ERROR
+}
+
 data class AdvertisingState(
     val phase: AdvertisingPhase = AdvertisingPhase.IDLE,
     val error: String? = null,
@@ -24,29 +36,33 @@ data class AdvertisingState(
 )
 
 /** Advertises discovery packets. Opening a GATT server and sending messages are separate steps. */
-class BluetoothGattServerManager(context: Context, private val permissionsManager: PermissionsManager) {
-    private val appContext = context.applicationContext
-    private val prefs = appContext.getSharedPreferences("nearby_profile", Context.MODE_PRIVATE)
-    private val id = if (prefs.contains("id")) prefs.getInt("id", 0) else SecureRandom().nextInt().also {
-        prefs.edit().putInt("id", it).apply()
+@SuppressLint("MissingPermission")
+class BluetoothGattServerManager(
+    private val context: Context,
+    private val permissionsManager: PermissionsManager,
+    private val userProfilePrefsRepository: UserProfileRepository,
+) {
+    companion object {
+        private const val TAG = "BluetoothGattServer"
     }
-    var profile = NearbyProfile(id, prefs.getString("name", null) ?: NearbyProfile.initial(id).name)
-        private set
+
+    private val appContext = context.applicationContext
+    private val profile: UserProfile
+        get() = userProfilePrefsRepository.currentProfile
 
     fun rename(name: String) {
-        require(NearbyProfile.validName(name))
-        prefs.edit().putString("name", name).apply()
-        profile = NearbyProfile(id, name)
+        userProfilePrefsRepository.updateDisplayName(name)
     }
 
-    private val mutableState = MutableStateFlow(AdvertisingState())
-    val advertisingState = mutableState.asStateFlow()
+    private val _advertisingState = MutableStateFlow(AdvertisingState())
+    val advertisingState = _advertisingState.asStateFlow()
+
     private var advertiser: BluetoothLeAdvertiser? = null
     private var callback: AdvertiseCallback? = null
     private var closed = false
 
-    @SuppressLint("MissingPermission")
-    @Synchronized fun startAdvertising() {
+    @Synchronized
+    fun startAdvertising() {
         if (closed || callback != null) return
         try {
             if (!permissionsManager.hasAdvertisingPermissions()) {
@@ -78,7 +94,7 @@ class BluetoothGattServerManager(context: Context, private val permissionsManage
                             stopSafely(currentAdvertiser, this)
                             return
                         }
-                        mutableState.value = AdvertisingState(AdvertisingPhase.ACTIVE)
+                        _advertisingState.value = AdvertisingState(AdvertisingPhase.ACTIVE)
                     }
                 }
                 override fun onStartFailure(errorCode: Int) {
@@ -109,7 +125,7 @@ class BluetoothGattServerManager(context: Context, private val permissionsManage
                 .build()
             advertiser = currentAdvertiser
             callback = currentCallback
-            mutableState.value = AdvertisingState(AdvertisingPhase.STARTING)
+            _advertisingState.value = AdvertisingState(AdvertisingPhase.STARTING)
             // A state observer can stop advertising while STARTING is being published.
             if (callback === currentCallback && !closed) {
                 currentAdvertiser.startAdvertising(settings, data, response, currentCallback)
@@ -121,20 +137,22 @@ class BluetoothGattServerManager(context: Context, private val permissionsManage
         }
     }
 
-    @Synchronized fun stopAdvertising() {
+    @Synchronized
+    fun stopAdvertising() {
         val wasActive = callback != null
         releaseAdvertising()
-        if (wasActive) mutableState.value = AdvertisingState(AdvertisingPhase.STOPPED)
+        if (wasActive) _advertisingState.value = AdvertisingState(AdvertisingPhase.STOPPED)
     }
 
-    @Synchronized fun close() {
+    @Synchronized
+    fun close() {
         closed = true
         stopAdvertising()
     }
 
     private fun fail(message: String, code: Int? = null) {
         releaseAdvertising()
-        mutableState.value = AdvertisingState(AdvertisingPhase.ERROR, message, code)
+        _advertisingState.value = AdvertisingState(AdvertisingPhase.ERROR, message, code)
     }
 
     private fun releaseAdvertising() {
@@ -145,7 +163,6 @@ class BluetoothGattServerManager(context: Context, private val permissionsManage
         if (oldAdvertiser != null && oldCallback != null) stopSafely(oldAdvertiser, oldCallback)
     }
 
-    @SuppressLint("MissingPermission")
     private fun stopSafely(advertiser: BluetoothLeAdvertiser, callback: AdvertiseCallback) {
         try { advertiser.stopAdvertising(callback) }
         catch (e: Exception) { Log.w(TAG, "Unable to stop advertising after Bluetooth/permission change", e) }
@@ -159,6 +176,4 @@ class BluetoothGattServerManager(context: Context, private val permissionsManage
         AdvertiseCallback.ADVERTISE_FAILED_FEATURE_UNSUPPORTED -> "BLE advertising не поддерживается"
         else -> "Неизвестная ошибка BLE advertising"
     }
-
-    companion object { private const val TAG = "BluetoothGattServer" }
 }

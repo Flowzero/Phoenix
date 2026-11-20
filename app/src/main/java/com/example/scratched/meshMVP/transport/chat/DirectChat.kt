@@ -7,7 +7,7 @@ import android.content.Context
 import com.example.scratched.meshMVP.transport.NearbyProfile
 import android.os.Handler
 import android.os.Looper
-import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
+import com.example.scratched.transport.meshBLE.BluetoothGattServerManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.ArrayDeque

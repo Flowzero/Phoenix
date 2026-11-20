@@ -46,8 +46,8 @@ import kotlinx.coroutines.launch
 
 
 
-import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
-import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
+import com.example.scratched.transport.meshBLE.BluetoothGattClientManager
+import com.example.scratched.transport.meshBLE.BluetoothGattServerManager
 import com.example.scratched.meshMVP.transport.chat.ChatPhase
 import com.example.scratched.meshMVP.transport.chat.DirectChat
 import kotlinx.coroutines.CoroutineScope
@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
                 onContinue = { viewModel.onRequestPermissionsClicked() }
             )
 
-            is OnboardingState.RUQUIRED_PERMISSION_REJECTED -> GrantPermissionsManually(
+            is OnboardingState.REQUIRED_PERMISSION_REJECTED -> GrantPermissionsManually(
                 modifier = modifier,
                 onContinue = { onGrantPermissionsManuallyClicked() },
                 onCheck =  { viewModel.onNextClicked() }

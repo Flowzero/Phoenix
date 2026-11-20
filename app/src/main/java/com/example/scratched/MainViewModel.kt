@@ -3,10 +3,10 @@ package com.example.scratched
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
-import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
+import com.example.scratched.transport.meshBLE.BluetoothGattClientManager
+import com.example.scratched.transport.meshBLE.BluetoothGattServerManager
 import com.example.scratched.meshMVP.transport.chat.DirectChat
-import com.example.scratched.meshMVP.transport.AdvertisingPhase
+import com.example.scratched.transport.meshBLE.AdvertisingPhase
 import com.example.scratched.meshMVP.transport.NearbyProfile
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -15,9 +15,7 @@ import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
-import com.example.scratched.onboarding.OnboardingPrefsRepository
 import com.example.scratched.onboarding.OnboardingState
-import com.example.scratched.onboarding.OnboardingStatusRepository
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow

@@ -1,5 +1,6 @@
-package com.example.scratched.meshMVP.transport
+package com.example.scratched.transport.meshBLE
 
+import android.util.Log
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -10,18 +11,19 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
-import android.util.Log
-
+import android.os.SystemClock
 import com.example.scratched.constants.AppConstants
+import com.example.scratched.meshMVP.transport.BleScanResult
+import com.example.scratched.meshMVP.transport.NearbyProfile
 import com.example.scratched.utilities.PermissionsManager
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -116,8 +118,14 @@ class BluetoothGattClientManager(
     private fun handleScanResult(result: ScanResult) {
         if (!result.isConnectable) return
         val bytes = result.scanRecord?.getServiceData(ParcelUuid(AppConstants.GATT.SERVICE_UUID))
-        val profile = NearbyProfile.decode(bytes) ?: return
-        _discoveredDevices.tryEmit(BleScanResult(result.device.address, profile, android.os.SystemClock.elapsedRealtime()))
+        val profile = NearbyProfile.Companion.decode(bytes) ?: return
+        _discoveredDevices.tryEmit(
+            BleScanResult(
+                result.device.address,
+                profile,
+                SystemClock.elapsedRealtime()
+            )
+        )
     }
 
     @Synchronized fun startScanning() {

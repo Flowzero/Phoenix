@@ -2,8 +2,8 @@ package com.example.scratched
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
-import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
+import com.example.scratched.transport.meshBLE.BluetoothGattClientManager
+import com.example.scratched.transport.meshBLE.BluetoothGattServerManager
 import com.example.scratched.meshMVP.transport.chat.DirectChat
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
