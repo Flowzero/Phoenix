@@ -33,7 +33,7 @@ import com.example.scratched.onboarding.EnableBluetoothScreen
 import com.example.scratched.onboarding.EnableLocationScreen
 import com.example.scratched.onboarding.GrantPermissionsManually
 import com.example.scratched.onboarding.LocationPermissionScreen
-import com.example.scratched.onboarding.MainAppScreen
+
 
 import com.example.scratched.onboarding.NotificationPermissionScreen
 import com.example.scratched.onboarding.OnboardingState
@@ -43,9 +43,9 @@ import com.example.scratched.ui.theme.ScratchedTheme
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.launch
 
-import com.example.scratched.BleDeviceUiModel
-import com.example.scratched.BleScanStatus
-import com.example.scratched.MainScreenUiState
+
+
+
 import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
 import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
 import com.example.scratched.meshMVP.transport.chat.ChatPhase
@@ -162,17 +162,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // If user updated the Bluetooth state in settings
-        viewModel.refreshState()
+        viewModel.setForeground(true)
     }
 
     override fun onStop() {
-        // These debug operations run only while the screen is visible.
-        viewModel.onStopScanClicked()
-        if (!isChangingConfigurations) {
-            viewModel.chat.interrupt("Чат завершён при выходе из приложения")
-            viewModel.onStopAdvertisingClicked()
-        }
+        if (!isChangingConfigurations) viewModel.setForeground(false)
         super.onStop()
     }
 
@@ -233,23 +227,20 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun MainAppScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
-        val uiState by viewModel.uiState.collectAsState()
-
         val chat by viewModel.chat.state.collectAsState()
-        if (chat.phase != ChatPhase.CLOSED) {
-            DirectChatScreen(chat, viewModel.chat::send, viewModel.chat::close, modifier)
-            return
+        if (chat.peer != null) {
+            DirectChatScreen(chat, viewModel.chat::send, viewModel::returnToPeople, modifier)
+        } else {
+            val people by viewModel.people.collectAsState()
+            val profile by viewModel.profile.collectAsState()
+            val scanError by viewModel.scanError.collectAsState()
+            val issue = when {
+                scanError != null -> "Не удалось найти людей рядом"
+                chat.phase == ChatPhase.ENDED -> "Не удалось принять соединение"
+                else -> null
+            }
+            NearbyScreen(profile, people, issue, viewModel::openConversation, viewModel::rename,
+                viewModel::retryDiscovery, modifier)
         }
-        MainAppScreen(
-            onHostChat = viewModel::hostChat,
-            modifier = modifier,
-            uiState = uiState,
-            onStartScan = { viewModel.onStartScanClicked() },
-            onStopScan = { viewModel.onStopScanClicked() },
-            onStartAdvertising = viewModel::onStartAdvertisingClicked,
-            onStopAdvertising = viewModel::onStopAdvertisingClicked,
-            onDeviceClick = { device -> viewModel.onDeviceClick(device) },
-            onRestartOnboarding = { viewModel.onRestartOnboardingClick() }
-        )
     }
 }

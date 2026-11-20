@@ -14,6 +14,8 @@ internal class ClientLink(
     private val device: BluetoothDevice
 ) : BluetoothGattCallback(), ChatLink {
     private var client: BluetoothGatt? = null
+    private var identityWritten = false
+    private var identityReceived = false
     private var channel: BluetoothGattCharacteristic? = null
 
     override fun open() {
@@ -23,7 +25,7 @@ internal class ClientLink(
     override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) = chat.event(this) {
         if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED) {
             check(gatt.discoverServices())
-        } else chat.end("Соединение завершено (GATT $status)")
+        } else chat.end("Собеседник недоступен")
     }
 
     override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) = chat.event(this) {
@@ -45,7 +47,7 @@ internal class ClientLink(
     }
 
     override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) = chat.event(this) {
-        if (status == BluetoothGatt.GATT_SUCCESS) chat.ready() else chat.end("Не удалось подписаться на сообщения")
+        if (status == BluetoothGatt.GATT_SUCCESS) check(write(chat.introduction())) else chat.end("Не удалось подписаться на сообщения")
     }
 
     override fun write(bytes: ByteArray): Boolean {
@@ -62,11 +64,21 @@ internal class ClientLink(
     }
 
     override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) = chat.event(this) {
-        if (status == BluetoothGatt.GATT_SUCCESS) chat.acknowledged() else chat.end("Ошибка записи сообщения")
+        if (status != BluetoothGatt.GATT_SUCCESS) chat.end("Не удалось отправить сообщение")
+        else if (!identityWritten) {
+            identityWritten = true
+            if (identityReceived) chat.ready()
+        } else chat.acknowledged()
     }
 
     override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
-        if (characteristic.uuid == GATT.CHARACTERISTIC_UUID) chat.event(this) { chat.receive(value) }
+        if (characteristic.uuid == GATT.CHARACTERISTIC_UUID) chat.event(this) {
+            if (!identityReceived) {
+                chat.identify(value)
+                identityReceived = true
+                if (identityWritten) chat.ready()
+            } else chat.receive(value)
+        }
     }
 
     @Deprecated("Callback for Android 10–12")

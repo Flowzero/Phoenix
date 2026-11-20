@@ -3,6 +3,7 @@ package com.example.scratched.meshMVP.transport.chat
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import com.example.scratched.meshMVP.transport.NearbyProfile
 import android.os.Handler
 import android.os.Looper
 import com.example.scratched.meshMVP.transport.BluetoothGattServerManager
@@ -14,7 +15,7 @@ enum class ChatPhase { CLOSED, SETUP, WAITING, READY, ENDED }
 data class ChatMessage(val text: String, val outgoing: Boolean)
 data class ChatState(
     val phase: ChatPhase = ChatPhase.CLOSED,
-    val peer: String? = null,
+    val peer: NearbyProfile? = null,
     val status: String = "",
     val sending: Boolean = false,
     val messages: List<ChatMessage> = emptyList()
@@ -34,12 +35,16 @@ class DirectChat(context: Context, private val advertiser: BluetoothGattServerMa
     private var outgoing = ""
     private val timeout = Runnable { end("Телефон не ответил вовремя") }
 
-    fun host() = begin(null)
-    fun connect(address: String) = begin(address)
+    private val history = object : LinkedHashMap<Int, List<ChatMessage>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, List<ChatMessage>>) = size > 30
+    }
 
-    private fun begin(address: String?) {
+    fun host() = begin(null, null)
+    fun connect(address: String, peer: NearbyProfile) = begin(address, peer)
+
+    private fun begin(address: String?, peer: NearbyProfile?) {
         close()
-        mutable.value = ChatState(ChatPhase.SETUP, address, "Подготовка соединения…")
+        mutable.value = ChatState(ChatPhase.SETUP, peer, "Подключение…", messages = peer?.let { history[it.id] }.orEmpty())
         guarded {
             val bluetooth = checkNotNull(manager)
             val next = if (address == null) HostLink(this, app, bluetooth)
@@ -56,7 +61,7 @@ class DirectChat(context: Context, private val advertiser: BluetoothGattServerMa
 
     internal fun listen() {
         handler.removeCallbacks(timeout)
-        mutable.value = mutable.value.copy(phase = ChatPhase.WAITING, status = "Ожидание собеседника · ${advertiser.advertisedDeviceName}")
+        mutable.value = mutable.value.copy(phase = ChatPhase.WAITING, status = "Ожидание собеседника")
         advertiser.startAdvertising()
     }
 
@@ -64,10 +69,19 @@ class DirectChat(context: Context, private val advertiser: BluetoothGattServerMa
         if (link is HostLink && mutable.value.phase == ChatPhase.WAITING) end(reason)
     }
 
-    internal fun accepting(address: String) {
-        mutable.value = mutable.value.copy(phase = ChatPhase.SETUP, peer = address, status = "Подключение…")
+    internal fun accepting() {
+        mutable.value = mutable.value.copy(phase = ChatPhase.SETUP, status = "Подключение…")
         advertiser.stopAdvertising()
         armTimeout()
+    }
+
+    internal fun introduction() = advertiser.profile.encode()
+
+    internal fun identify(bytes: ByteArray) {
+        val peer = requireNotNull(NearbyProfile.decode(bytes))
+        val expected = mutable.value.peer
+        check(peer.id != advertiser.profile.id && (expected == null || expected.id == peer.id))
+        mutable.value = mutable.value.copy(peer = peer, messages = history[peer.id].orEmpty())
     }
 
     internal fun ready() {
@@ -99,12 +113,15 @@ class DirectChat(context: Context, private val advertiser: BluetoothGattServerMa
     }
 
     internal fun receive(bytes: ByteArray) {
-        check(mutable.value.phase == ChatPhase.READY)
+        check(mutable.value.peer != null)
         incoming.accept(bytes)?.let { append(ChatMessage(it, false)) }
     }
 
     private fun append(message: ChatMessage) {
-        mutable.value = mutable.value.copy(messages = (mutable.value.messages + message).takeLast(100))
+        val id = checkNotNull(mutable.value.peer).id
+        val messages = (mutable.value.messages + message).takeLast(100)
+        history[id] = messages
+        mutable.value = mutable.value.copy(messages = messages)
     }
 
     private fun armTimeout() {

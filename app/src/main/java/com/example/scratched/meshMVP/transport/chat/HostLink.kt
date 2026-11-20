@@ -17,6 +17,8 @@ internal class HostLink(
     private var peer: BluetoothDevice? = null
     private var registered = false
     private var subscribed = false
+    private var introduced = false
+    private var confirming = false
     private val channel = BluetoothGattCharacteristic(
         GATT.CHARACTERISTIC_UUID,
         BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_INDICATE,
@@ -43,7 +45,7 @@ internal class HostLink(
             if (!registered) server?.cancelConnection(device)
             else if (peer == null) {
                 peer = device
-                chat.accepting(device.address)
+                chat.accepting()
             } else if (peer != device) server?.cancelConnection(device)
         } else if (peer == device) chat.end("Соединение завершено")
     }
@@ -58,18 +60,23 @@ internal class HostLink(
         val accepted = device == peer && descriptor.uuid == subscription.uuid && offset == 0 && !preparedWrite &&
             value.contentEquals(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE)
         if (responseNeeded) respond(device, requestId, accepted)
-        if (accepted && !subscribed) {
-            subscribed = true
-            chat.ready()
-        }
+        if (accepted) subscribed = true
     }
 
     override fun onCharacteristicWriteRequest(device: BluetoothDevice, requestId: Int, characteristic: BluetoothGattCharacteristic,
         preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray) = chat.event(this) {
         val accepted = subscribed && device == peer && characteristic.uuid == channel.uuid &&
             !preparedWrite && responseNeeded && offset == 0
-        if (accepted) chat.receive(value)
-        if (responseNeeded) respond(device, requestId, accepted)
+        if (accepted && !introduced) {
+            chat.identify(value)
+            introduced = true
+            respond(device, requestId, true)
+            confirming = true
+            check(write(chat.introduction()))
+        } else {
+            if (accepted) chat.receive(value)
+            if (responseNeeded) respond(device, requestId, accepted)
+        }
     }
 
     override fun write(bytes: ByteArray): Boolean {
@@ -85,7 +92,11 @@ internal class HostLink(
 
     override fun onNotificationSent(device: BluetoothDevice, status: Int) = chat.event(this) {
         if (device == peer) {
-            if (status == BluetoothGatt.GATT_SUCCESS) chat.acknowledged() else chat.end("Ошибка отправки сообщения")
+            if (status != BluetoothGatt.GATT_SUCCESS) chat.end("Не удалось отправить сообщение")
+            else if (confirming) {
+                confirming = false
+                chat.ready()
+            } else chat.acknowledged()
         }
     }
 

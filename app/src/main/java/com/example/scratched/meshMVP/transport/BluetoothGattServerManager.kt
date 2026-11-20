@@ -26,8 +26,19 @@ data class AdvertisingState(
 /** Advertises discovery packets. Opening a GATT server and sending messages are separate steps. */
 class BluetoothGattServerManager(context: Context, private val permissionsManager: PermissionsManager) {
     private val appContext = context.applicationContext
-    private val payload = PhoenixAdvertisement.encode(SecureRandom().nextInt())
-    val advertisedDeviceName: String = requireNotNull(PhoenixAdvertisement.deviceName(payload))
+    private val prefs = appContext.getSharedPreferences("nearby_profile", Context.MODE_PRIVATE)
+    private val id = if (prefs.contains("id")) prefs.getInt("id", 0) else SecureRandom().nextInt().also {
+        prefs.edit().putInt("id", it).apply()
+    }
+    var profile = NearbyProfile(id, prefs.getString("name", null) ?: NearbyProfile.initial(id).name)
+        private set
+
+    fun rename(name: String) {
+        require(NearbyProfile.validName(name))
+        prefs.edit().putString("name", name).apply()
+        profile = NearbyProfile(id, name)
+    }
+
     private val mutableState = MutableStateFlow(AdvertisingState())
     val advertisingState = mutableState.asStateFlow()
     private var advertiser: BluetoothLeAdvertiser? = null
@@ -92,9 +103,9 @@ class BluetoothGattServerManager(context: Context, private val permissionsManage
                 .setIncludeTxPowerLevel(false)
                 .build()
             val response = AdvertiseData.Builder()
-                .addServiceData(serviceUuid, payload.copyOf())
+                .addServiceData(serviceUuid, profile.encode())
                 .setIncludeDeviceName(false)
-                .setIncludeTxPowerLevel(true)
+                .setIncludeTxPowerLevel(false)
                 .build()
             advertiser = currentAdvertiser
             callback = currentCallback

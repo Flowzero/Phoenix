@@ -114,50 +114,11 @@ class BluetoothGattClientManager(
     }
 
     private fun handleScanResult(result: ScanResult) {
-        val scanRecord = result.scanRecord
-        val serviceUuid = ParcelUuid(AppConstants.GATT.SERVICE_UUID)
-        val hasOurService = scanRecord?.serviceUuids?.contains(serviceUuid) == true ||
-            scanRecord?.getServiceData(serviceUuid) != null
-        if (!hasOurService) return
-
-        val name = PhoenixAdvertisement.deviceName(scanRecord?.getServiceData(serviceUuid))
-            ?: scanRecord?.deviceName
-        val scanResult = parseScanResult(result.device.address, name, result.rssi, scanRecord, result.isConnectable)
-        connectionScope.launch { _discoveredDevices.emit(scanResult) }
+        if (!result.isConnectable) return
+        val bytes = result.scanRecord?.getServiceData(ParcelUuid(AppConstants.GATT.SERVICE_UUID))
+        val profile = NearbyProfile.decode(bytes) ?: return
+        _discoveredDevices.tryEmit(BleScanResult(result.device.address, profile, android.os.SystemClock.elapsedRealtime()))
     }
-
-    private fun parseScanResult(
-        address: String,
-        name: String?,
-        rssi: Int,
-        scanRecord: android.bluetooth.le.ScanRecord?,
-        isConnectable: Boolean
-    ): BleScanResult {
-        val currentTime = System.currentTimeMillis()
-
-        val serviceUuids = scanRecord?.serviceUuids?.map { it.uuid.toString() } ?: emptyList()
-
-        val manufacturerData = mutableMapOf<Int, ByteArray>()
-        scanRecord?.manufacturerSpecificData?.let { msd ->
-            for (i in 0 until msd.size()) {
-                manufacturerData[msd.keyAt(i)] = msd.valueAt(i)
-            }
-        }
-
-        return BleScanResult(
-            address = address,
-            name = name,
-            rssi = rssi,
-            txPower = scanRecord?.txPowerLevel?.takeUnless { it == Int.MIN_VALUE },
-            serviceUuids = serviceUuids,
-            manufacturerData = manufacturerData,
-            isConnectable = isConnectable,
-            observedAtMillis = currentTime,
-            serviceData = scanRecord?.serviceData?.mapKeys { it.key.uuid.toString() }
-                ?.mapValues { it.value.copyOf() } ?: emptyMap()
-        )
-    }
-    // </TEST IMPLEMENTATION> ----------------------------------------------------------------------
 
     @Synchronized fun startScanning() {
         if (isScanning || pendingScanJob?.isActive == true) return
