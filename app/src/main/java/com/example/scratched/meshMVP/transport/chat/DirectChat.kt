@@ -1,5 +1,6 @@
 package com.example.scratched.meshMVP.transport.chat
 
+import com.example.scratched.history.ChatHistory
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.content.Context
@@ -17,8 +18,7 @@ data class ChatState(
     val phase: ChatPhase = ChatPhase.CLOSED,
     val peer: NearbyProfile? = null,
     val status: String = "",
-    val sending: Boolean = false,
-    val messages: List<ChatMessage> = emptyList()
+    val sending: Boolean = false
 )
 
 /** All session changes run on the UI thread. Each callback belongs to exactly one link. */
@@ -35,16 +35,14 @@ class DirectChat(context: Context, private val advertiser: BluetoothGattServerMa
     private var outgoing = ""
     private val timeout = Runnable { end("Телефон не ответил вовремя") }
 
-    private val history = object : LinkedHashMap<Int, List<ChatMessage>>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, List<ChatMessage>>) = size > 30
-    }
+    val history = ChatHistory.shared(app)
 
     fun host() = begin(null, null)
     fun connect(address: String, peer: NearbyProfile) = begin(address, peer)
 
     private fun begin(address: String?, peer: NearbyProfile?) {
         close()
-        mutable.value = ChatState(ChatPhase.SETUP, peer, "Подключение…", messages = peer?.let { history[it.id] }.orEmpty())
+        mutable.value = ChatState(ChatPhase.SETUP, peer, "Подключение…")
         guarded {
             val bluetooth = checkNotNull(manager)
             val next = if (address == null) HostLink(this, app, bluetooth)
@@ -81,7 +79,7 @@ class DirectChat(context: Context, private val advertiser: BluetoothGattServerMa
         val peer = requireNotNull(NearbyProfile.decode(bytes))
         val expected = mutable.value.peer
         check(peer.id != advertiser.profile.id && (expected == null || expected.id == peer.id))
-        mutable.value = mutable.value.copy(peer = peer, messages = history[peer.id].orEmpty())
+        mutable.value = mutable.value.copy(peer = peer)
     }
 
     internal fun ready() {
@@ -118,10 +116,8 @@ class DirectChat(context: Context, private val advertiser: BluetoothGattServerMa
     }
 
     private fun append(message: ChatMessage) {
-        val id = checkNotNull(mutable.value.peer).id
-        val messages = (mutable.value.messages + message).takeLast(100)
-        history[id] = messages
-        mutable.value = mutable.value.copy(messages = messages)
+        val peer = checkNotNull(mutable.value.peer)
+        history.save(peer, message)
     }
 
     private fun armTimeout() {

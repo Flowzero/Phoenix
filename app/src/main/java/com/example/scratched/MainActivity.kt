@@ -107,12 +107,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             ScratchedTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    OnboardingFlowScreen(
-                        viewModel = viewModel,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    )
+                    ChatNavigation(viewModel, Modifier.fillMaxSize().padding(innerPadding)) {
+                        OnboardingFlowScreen(viewModel, Modifier.fillMaxSize())
+                    }
                 }
             }
         }
@@ -229,7 +226,7 @@ class MainActivity : ComponentActivity() {
     private fun MainAppScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
         val chat by viewModel.chat.state.collectAsState()
         if (chat.peer != null) {
-            DirectChatScreen(chat, viewModel.chat::send, viewModel::returnToPeople, modifier)
+            DirectChatScreen(chat, viewModel.chat.history, viewModel.chat::send, viewModel::returnToPeople, modifier)
         } else {
             val people by viewModel.people.collectAsState()
             val profile by viewModel.profile.collectAsState()
