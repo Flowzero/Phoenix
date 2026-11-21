@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattServer
 import android.bluetooth.BluetoothManager
 import com.example.scratched.constants.AppConstants.GATT
@@ -36,13 +37,16 @@ class HostLinkManager(
     private var introduced = false
     private var confirming = false
 
-    /*
     private var channel = BluetoothGattCharacteristic(
         GATT.CHARACTERISTIC_UUID,
-        BluetoothGattCharacteristic.PROPERTY_WRITE or
-                BluetoothGattCharacteristic.PROPERTY_INDICATE,
+        BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_INDICATE,
+        BluetoothGattCharacteristic.PROPERTY_WRITE
     )
 
-     */
+    private val subscription = BluetoothGattDescriptor(
+        GATT.DESCRIPTOR_UUID,
+        BluetoothGattDescriptor.PERMISSION_WRITE
+    )
+
 
 }
