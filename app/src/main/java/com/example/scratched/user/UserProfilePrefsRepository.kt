@@ -11,7 +11,7 @@ import java.security.SecureRandom
  * @property context
  */
 
-class UserProfilePrefsRepository(context: Context) : UserProfileRepository {
+class UserProfilePrefsRepository(private val context: Context) : UserProfileRepository {
 
     private companion object {
         const val PREFERENCES_FILE = "nearby_profile"

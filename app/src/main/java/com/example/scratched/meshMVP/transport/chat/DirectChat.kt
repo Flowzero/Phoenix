@@ -7,7 +7,7 @@ import android.content.Context
 import com.example.scratched.meshMVP.transport.NearbyProfile
 import android.os.Handler
 import android.os.Looper
-import com.example.scratched.transport.meshBLE.BluetoothGattServerManager
+import com.example.scratched.transport.meshBLE.BleAdvertiser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.ArrayDeque
@@ -23,7 +23,7 @@ data class ChatState(
 
 /** All session changes run on the UI thread. Each callback belongs to exactly one link. */
 @SuppressLint("MissingPermission")
-class DirectChat(context: Context, private val advertiser: BluetoothGattServerManager) {
+class DirectChat(context: Context, private val advertiser: BleAdvertiser) {
     private val app = context.applicationContext
     private val manager get() = app.getSystemService(BluetoothManager::class.java)
     private val handler = Handler(Looper.getMainLooper())

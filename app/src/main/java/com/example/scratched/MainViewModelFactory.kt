@@ -2,8 +2,8 @@ package com.example.scratched
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.example.scratched.transport.meshBLE.BluetoothGattClientManager
-import com.example.scratched.transport.meshBLE.BluetoothGattServerManager
+import com.example.scratched.transport.meshBLE.BleScanner
+import com.example.scratched.transport.meshBLE.BleAdvertiser
 import com.example.scratched.meshMVP.transport.chat.DirectChat
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
@@ -16,8 +16,8 @@ class MainViewModelFactory(
     private val permissionsManager: PermissionsManager,
     private val bluetoothStateManager: BluetoothStateManager,
     private val locationStateManager: LocationStateManager,
-    private val gattClientManager: BluetoothGattClientManager,
-    private val gattServerManager: BluetoothGattServerManager,
+    private val gattClientManager: BleScanner,
+    private val gattServerManager: BleAdvertiser,
     private val repository: OnboardingStatusRepository
 ) : ViewModelProvider.Factory {
 

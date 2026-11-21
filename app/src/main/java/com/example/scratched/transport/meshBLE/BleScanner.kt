@@ -27,18 +27,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Manages GATT client side operations: scanning and client-side connections
+ * BleScanner is responsible only for scanning for discovery packets:
  */
 
 @SuppressLint("MissingPermission")
-class BluetoothGattClientManager(
+class BleScanner(
     private val context: Context,
     private val connectionScope: CoroutineScope,
     private val permissionsManager: PermissionsManager
 
 ) {
     companion object {
-        const val TAG = "BluetoothGattClientManager"
+        const val TAG = "BleScanner"
     }
 
     // <TEST IMPLEMENTATION> -----------------------------------------------------------------------
@@ -157,7 +157,7 @@ class BluetoothGattClientManager(
             val generation = scanGeneration
             pendingScanJob = connectionScope.launch {
                 delay(remainingWait)
-                synchronized(this@BluetoothGattClientManager) {
+                synchronized(this@BleScanner) {
                     if (generation == scanGeneration) {
                         pendingScanJob = null
                         startScanning()

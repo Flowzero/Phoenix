@@ -35,9 +35,12 @@ data class AdvertisingState(
     val androidErrorCode: Int? = null
 )
 
-/** Advertises discovery packets. Opening a GATT server and sending messages are separate steps. */
+/**
+ * BluetoothGattServerManager is responsible only for advertisement for discovery packets
+ */
+
 @SuppressLint("MissingPermission")
-class BluetoothGattServerManager(
+class BleAdvertiser(
     private val context: Context,
     private val permissionsManager: PermissionsManager,
     private val userProfilePrefsRepository: UserProfileRepository,
@@ -47,7 +50,7 @@ class BluetoothGattServerManager(
     }
 
     private val appContext = context.applicationContext
-    private val profile: UserProfile
+    val profile: UserProfile
         get() = userProfilePrefsRepository.currentProfile
 
     fun rename(name: String) {
@@ -89,7 +92,7 @@ class BluetoothGattServerManager(
             }
             val currentCallback = object : AdvertiseCallback() {
                 override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-                    synchronized(this@BluetoothGattServerManager) {
+                    synchronized(this@BleAdvertiser) {
                         if (callback !== this) {
                             stopSafely(currentAdvertiser, this)
                             return
@@ -98,7 +101,7 @@ class BluetoothGattServerManager(
                     }
                 }
                 override fun onStartFailure(errorCode: Int) {
-                    synchronized(this@BluetoothGattServerManager) {
+                    synchronized(this@BleAdvertiser) {
                         if (callback !== this) return
                         fail("${failureMessage(errorCode)} (Android code $errorCode)", errorCode)
                     }

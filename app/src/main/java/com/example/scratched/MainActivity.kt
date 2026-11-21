@@ -46,8 +46,8 @@ import kotlinx.coroutines.launch
 
 
 
-import com.example.scratched.transport.meshBLE.BluetoothGattClientManager
-import com.example.scratched.transport.meshBLE.BluetoothGattServerManager
+import com.example.scratched.transport.meshBLE.BleScanner
+import com.example.scratched.transport.meshBLE.BleAdvertiser
 import com.example.scratched.meshMVP.transport.chat.ChatPhase
 import com.example.scratched.meshMVP.transport.chat.DirectChat
 import kotlinx.coroutines.CoroutineScope
@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
     private val managerScope = CoroutineScope(Dispatchers.IO+ SupervisorJob())
 
     private val viewModel: MainViewModel by this.viewModels {
-        val advertiser = BluetoothGattServerManager(applicationContext, PermissionsManager(applicationContext))
+        val advertiser = BleAdvertiser(applicationContext, PermissionsManager(applicationContext))
         MainViewModelFactory(
             chat = DirectChat(applicationContext, advertiser),
             permissionsManager = PermissionsManager(this),
@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
                 UsableBluetoothAdapter(this)),
             locationStateManager = LocationStateManager(UsableLocationAdapter(this)),
             repository = OnboardingPrefsRepository(this),
-            gattClientManager = BluetoothGattClientManager(
+            gattClientManager = BleScanner(
                 context = this,
                 connectionScope = managerScope,
                 permissionsManager = PermissionsManager(this)),

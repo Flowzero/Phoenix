@@ -3,8 +3,8 @@ package com.example.scratched
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.scratched.transport.meshBLE.BluetoothGattClientManager
-import com.example.scratched.transport.meshBLE.BluetoothGattServerManager
+import com.example.scratched.transport.meshBLE.BleScanner
+import com.example.scratched.transport.meshBLE.BleAdvertiser
 import com.example.scratched.meshMVP.transport.chat.DirectChat
 import com.example.scratched.transport.meshBLE.AdvertisingPhase
 import com.example.scratched.meshMVP.transport.NearbyProfile
@@ -32,9 +32,9 @@ class MainViewModel(
     private val locationStateManager: LocationStateManager,
 
     private val permissionsManager: PermissionsManager,
-    private val gattClientManager: BluetoothGattClientManager,
+    private val gattClientManager: BleScanner,
     val chat: DirectChat,
-    private val gattServerManager: BluetoothGattServerManager
+    private val gattServerManager: BleAdvertiser
 ) : ViewModel() {
     companion object {
         const val TAG = "MainViewModel"
