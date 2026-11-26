@@ -1,5 +1,7 @@
 package com.example.scratched.history
 
+import com.example.scratched.user.UserProfile
+
 import android.content.ContentValues
 import android.database.SQLException
 import android.content.Context
@@ -14,7 +16,7 @@ import java.util.concurrent.Executors
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
-data class Conversation(val peer: NearbyProfile, val last: ChatMessage)
+data class Conversation(val peer: UserProfile, val last: ChatMessage)
 
 /** One committed row per completed message, in local insertion order. */
 class ChatHistory(context: Context) : SQLiteOpenHelper(
@@ -31,7 +33,7 @@ class ChatHistory(context: Context) : SQLiteOpenHelper(
     private val writeError = MutableStateFlow(false)
     val writeFailed = writeError.asStateFlow()
 
-    fun save(peer: NearbyProfile, message: ChatMessage) {
+    fun save(peer: UserProfile, message: ChatMessage) {
         writer.execute {
             try {
                 append(peer, message)
@@ -55,7 +57,7 @@ class ChatHistory(context: Context) : SQLiteOpenHelper(
         error("Unsupported chat database version: $oldVersion → $newVersion")
 
     @Synchronized
-    fun append(peer: NearbyProfile, message: ChatMessage) {
+    fun append(peer: UserProfile, message: ChatMessage) {
         val values = ContentValues().apply {
             put("peer_id", peer.id)
             put("peer_name", peer.name)
@@ -70,7 +72,7 @@ class ChatHistory(context: Context) : SQLiteOpenHelper(
         readableDatabase.rawQuery("""SELECT peer_id, peer_name, body, outgoing FROM messages
             WHERE id IN (SELECT MAX(id) FROM messages GROUP BY peer_id) ORDER BY id DESC""", null).use { cursor ->
             buildList {
-                while (cursor.moveToNext()) add(Conversation(NearbyProfile(cursor.getInt(0), cursor.getString(1)),
+                while (cursor.moveToNext()) add(Conversation(UserProfile(cursor.getInt(0), cursor.getString(1)),
                     ChatMessage(cursor.getString(2), cursor.getInt(3) != 0)))
             }
         }

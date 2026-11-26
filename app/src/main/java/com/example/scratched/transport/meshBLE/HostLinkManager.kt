@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.example.scratched.transport.meshBLE
 
 import android.content.Context
@@ -11,6 +12,7 @@ import android.bluetooth.BluetoothGattServerCallback
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothStatusCodes
+import android.bluetooth.BluetoothProfile
 import android.os.Build
 import com.example.scratched.constants.AppConstants.GATT
 import com.example.scratched.transport.LinkListener
@@ -41,13 +43,11 @@ internal class HostLinkManager(
 
     private var gattServiceRegistered = false
     private var subscribed = false
-    private var introduced = false
-    private var confirming = false
 
-    private var channel = BluetoothGattCharacteristic(
+    private val channel = BluetoothGattCharacteristic(
         GATT.CHARACTERISTIC_UUID,
         BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_INDICATE,
-        BluetoothGattCharacteristic.PROPERTY_WRITE
+        BluetoothGattCharacteristic.PERMISSION_WRITE
     )
 
     private val subscription = BluetoothGattDescriptor(
@@ -62,73 +62,53 @@ internal class HostLinkManager(
         )
 
         // service contains a characteristic (channel) and the characteristic has descriptor
-        check(channel.addDescriptor(subscription) && service.addCharacteristic(channel)) {
-            "Failed to create service with characteristic and its descriptor"
-        }
+        check(channel.addDescriptor(subscription)) { "Failed to add GATT descriptor" }
+        check(service.addCharacteristic(channel)) { "Failed to add GATT characteristic" }
 
-        gattServer = bluetoothManager.openGattServer(context, this)
-        check(gattServer?.addService(service) == true)
+        gattServer = checkNotNull(bluetoothManager.openGattServer(context, this)) {
+            "Failed to open GATT server"
+        }
+        check(gattServer?.addService(service) == true) { "Failed to add GATT service" }
     }
 
-    override fun onServiceAdded(status: Int, service: BluetoothGattService?) {
-        // super.onServiceAdded(status, service)
-
+    override fun onServiceAdded(status: Int, service: BluetoothGattService) {
         listener.dispatch(this) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
+            if (status == BluetoothGatt.GATT_SUCCESS && service.uuid == GATT.SERVICE_UUID) {
                 gattServiceRegistered = true
                 listener.onListening(this)
             } else {
                 listener.onError(
                     this,
-                    "Failed to register GATT-service"
+                    "Не удалось зарегистрировать GATT-сервис ($status)"
                 )
             }
         }
     }
 
-    // for now: service one device per connection
+    // One peer per transport instance.
     override fun onConnectionStateChange(
-        device: BluetoothDevice?,
+        device: BluetoothDevice,
         status: Int,
         newState: Int
-    ) {
-        // super.onConnectionStateChange(device, status, newState)
-
-        listener.dispatch(this) {
-            // new device successfully connected
-            if (status == BluetoothGatt.GATT_SUCCESS &&
-                newState == BluetoothGatt.STATE_CONNECTED
-            ) {
-                // normally should not happen
-                if (!gattServiceRegistered) {
-                    gattServer?.cancelConnection(device)
-
-                // Our server does not yet have a selected conversation partner
-                } else if (peer == null) {
-                    peer = device
-                    listener.onConnected(this)
-
-                // refuse connection from another device
-                } else if (peer != device) {
-                    gattServer?.cancelConnection(device)
-
-                // a connection from known device
-                } else if (peer == device) {
-                    // do nothing
-                }
-
-            // process an error or disconnect of partner device
-            } else if (peer == device) {
+    ) = listener.dispatch(this) {
+        if (status == BluetoothGatt.GATT_SUCCESS &&
+            newState == BluetoothProfile.STATE_CONNECTED
+        ) {
+            if (!gattServiceRegistered) {
+                gattServer?.cancelConnection(device)
+            } else if (peer == null) {
+                peer = device
+                listener.onConnected(this)
+            } else if (peer != device) {
+                gattServer?.cancelConnection(device)
+            }
+        } else if (peer == device) {
+            if (status != BluetoothGatt.GATT_SUCCESS) {
                 subscribed = false
-
-                if (status != BluetoothGatt.GATT_SUCCESS) {
-                    listener.onError(
-                        this,
-                        "Error occurred while BLE-connection"
-                    )
-                } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                    listener.onDisconnected(this)
-                }
+                listener.onError(this, "Ошибка Bluetooth-соединения ($status)")
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                subscribed = false
+                listener.onDisconnected(this)
             }
         }
     }
@@ -250,7 +230,7 @@ internal class HostLinkManager(
             } else {
                 listener.onError(
                     this,
-                    "Failed to send data"
+                    "Не удалось отправить данные ($status)"
                 )
             }
         }

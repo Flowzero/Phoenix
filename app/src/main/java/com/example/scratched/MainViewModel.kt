@@ -1,5 +1,7 @@
 package com.example.scratched
 
+import com.example.scratched.user.UserProfile
+
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -157,7 +159,7 @@ class MainViewModel(
     }
 
     fun rename(name: String) {
-        if (NearbyProfile.validName(name) && name != profile.value.name) {
+        if (UserProfile.validName(name) && name != profile.value.name) {
             gattServerManager.rename(name)
             _profile.value = gattServerManager.profile
             if (discovery != null && chat.state.value.peer == null) chat.host()

@@ -1,11 +1,13 @@
 package com.example.scratched
 
+import com.example.scratched.user.UserProfile
+
 import org.junit.Assert.*
 import org.junit.Test
 
 class NearbyPeopleTest {
     @Test fun threePhonesSeeTwoDistinctPeopleAndRotationUpdatesTheAddress() {
-        val users = (1..3).map { NearbyProfile(it, "Саша") }
+        val users = (1..3).map { UserProfile(it, "Саша") }
         users.forEach { me ->
             val list = NearbyPeople(me.id)
             users.forEach { list.observe(it, "address-${it.id}", 0) }
@@ -20,13 +22,13 @@ class NearbyPeopleTest {
 
     @Test fun namesFitInALegacyAdvertisementAndSurviveTheHandshake() {
         for (name in listOf("АнастасЯ", "Phoenix1", "Ёж")) {
-            val profile = NearbyProfile(-123, name)
-            assertEquals(profile, NearbyProfile.decode(profile.encode()))
+            val profile = UserProfile(-123, name)
+            assertEquals(profile, UserProfile.decode(profile.encode()))
             assertTrue(18 + profile.encode().size <= 31)
         }
-        assertNull(NearbyProfile.decode(byteArrayOf(1, 0, 0, 0, 1)))
-        assertNull(NearbyProfile.decode(byteArrayOf(2, 0, 0, 0, 1, 0)))
-        assertFalse(NearbyProfile.validName("🙂"))
-        assertFalse(NearbyProfile.validName("         "))
+        assertNull(UserProfile.decode(byteArrayOf(1, 0, 0, 0, 1)))
+        assertNull(UserProfile.decode(byteArrayOf(2, 0, 0, 0, 1, 0)))
+        assertFalse(UserProfile.validName("🙂"))
+        assertFalse(UserProfile.validName("         "))
     }
 }

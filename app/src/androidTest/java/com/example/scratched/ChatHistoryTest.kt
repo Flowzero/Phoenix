@@ -1,5 +1,7 @@
 package com.example.scratched
 
+import com.example.scratched.user.UserProfile
+
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.scratched.history.ChatHistory
@@ -16,8 +18,8 @@ class ChatHistoryTest {
         // The instrumentation package has separate storage from the installed messenger.
         val context = InstrumentationRegistry.getInstrumentation().context
         context.noBackupFilesDir.resolve("chat-history.db").delete()
-        val anna = NearbyProfile(1, "Анна")
-        val other = NearbyProfile(2, "Анна")
+        val anna = UserProfile(1, "Анна")
+        val other = UserProfile(2, "Анна")
         val reply = ChatMessage("Привет 🌙", false)
         ChatHistory(context).use { db ->
             repeat(125) { db.append(anna, ChatMessage("Сообщение $it", true)) }

@@ -1,5 +1,7 @@
 package com.example.scratched
 
+import com.example.scratched.user.UserProfile
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,7 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun ProfileAvatar(profile: NearbyProfile, modifier: Modifier = Modifier) {
+internal fun ProfileAvatar(profile: UserProfile, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     val (surface, ink) = when (profile.id and 3) {
         0 -> colors.primaryContainer to colors.onPrimaryContainer
@@ -33,7 +35,7 @@ internal fun ProfileAvatar(profile: NearbyProfile, modifier: Modifier = Modifier
 }
 
 @Composable
-fun NearbyScreen(profile: NearbyProfile, people: List<NearbyPerson>, issue: String?,
+fun NearbyScreen(profile: UserProfile, people: List<NearbyPerson>, issue: String?,
     open: (NearbyPerson) -> Unit, rename: (String) -> Unit, retry: () -> Unit, modifier: Modifier = Modifier) {
     var editing by rememberSaveable { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
@@ -90,7 +92,7 @@ fun NearbyScreen(profile: NearbyProfile, people: List<NearbyPerson>, issue: Stri
             },
             confirmButton = {
                 TextButton(onClick = { rename(name.trim()); editing = false },
-                    enabled = NearbyProfile.validName(name.trim())) { Text("Сохранить") }
+                    enabled = UserProfile.validName(name.trim())) { Text("Сохранить") }
             },
             dismissButton = { TextButton(onClick = { editing = false }) { Text("Отмена") } })
     }

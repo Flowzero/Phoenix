@@ -41,6 +41,7 @@ import com.example.scratched.onboarding.OnboardingPrefsRepository
 import com.example.scratched.onboarding.WelcomeScreen
 import com.example.scratched.ui.theme.ScratchedTheme
 import com.example.scratched.utilities.PermissionsManager
+import com.example.scratched.user.UserProfilePrefsRepository
 import kotlinx.coroutines.launch
 
 
@@ -64,7 +65,11 @@ class MainActivity : ComponentActivity() {
     private val managerScope = CoroutineScope(Dispatchers.IO+ SupervisorJob())
 
     private val viewModel: MainViewModel by this.viewModels {
-        val advertiser = BleAdvertiser(applicationContext, PermissionsManager(applicationContext))
+        val advertiser = BleAdvertiser(
+            applicationContext,
+            PermissionsManager(applicationContext),
+            UserProfilePrefsRepository(applicationContext)
+        )
         MainViewModelFactory(
             chat = DirectChat(applicationContext, advertiser),
             permissionsManager = PermissionsManager(this),

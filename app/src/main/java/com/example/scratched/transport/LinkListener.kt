@@ -1,8 +1,6 @@
 package com.example.scratched.transport
 
-/**
- *
- */
+/** All callbacks run inside dispatch; onReady means transport readiness, not session readiness. */
 
 internal interface LinkListener {
     fun dispatch(source: Transport, action: () -> Unit)

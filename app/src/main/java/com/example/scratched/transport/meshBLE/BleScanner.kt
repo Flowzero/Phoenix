@@ -1,5 +1,7 @@
 package com.example.scratched.transport.meshBLE
 
+import com.example.scratched.user.UserProfile
+
 import android.util.Log
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
@@ -13,7 +15,6 @@ import android.content.Context
 import android.os.ParcelUuid
 import android.os.SystemClock
 import com.example.scratched.constants.AppConstants
-import com.example.scratched.transport.meshBLE.BleScanResult
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -117,7 +118,7 @@ class BleScanner(
     private fun handleScanResult(result: ScanResult) {
         if (!result.isConnectable) return
         val bytes = result.scanRecord?.getServiceData(ParcelUuid(AppConstants.GATT.SERVICE_UUID))
-        val profile = NearbyProfile.Companion.decode(bytes) ?: return
+        val profile = UserProfile.decode(bytes) ?: return
         _discoveredDevices.tryEmit(
             BleScanResult(
                 result.device.address,

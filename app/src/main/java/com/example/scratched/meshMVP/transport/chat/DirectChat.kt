@@ -1,6 +1,12 @@
 package com.example.scratched.meshMVP.transport.chat
 
 import com.example.scratched.history.ChatHistory
+import com.example.scratched.user.UserProfile
+import com.example.scratched.transport.Transport
+import com.example.scratched.transport.LinkListener
+import com.example.scratched.transport.meshBLE.HostLinkManager
+import com.example.scratched.transport.meshBLE.ClientLinkManager
+import android.util.Log
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.content.Context
@@ -15,7 +21,7 @@ enum class ChatPhase { CLOSED, SETUP, WAITING, READY, ENDED }
 data class ChatMessage(val text: String, val outgoing: Boolean)
 data class ChatState(
     val phase: ChatPhase = ChatPhase.CLOSED,
-    val peer: NearbyProfile? = null,
+    val peer: UserProfile? = null,
     val status: String = "",
     val sending: Boolean = false
 )
@@ -28,7 +34,9 @@ class DirectChat(context: Context, private val advertiser: BleAdvertiser) {
     private val handler = Handler(Looper.getMainLooper())
     private val mutable = MutableStateFlow(ChatState())
     val state = mutable.asStateFlow()
-    private var link: ChatLink? = null
+    private var link: Transport? = null
+    private var identityWritten = false
+    private var identityReceived = false
     private var incoming = ChatFrames()
     private val frames = ArrayDeque<ByteArray>()
     private var outgoing = ""
@@ -37,23 +45,67 @@ class DirectChat(context: Context, private val advertiser: BleAdvertiser) {
     val history = ChatHistory.shared(app)
 
     fun host() = begin(null, null)
-    fun connect(address: String, peer: NearbyProfile) = begin(address, peer)
+    fun connect(address: String, peer: UserProfile) = begin(address, peer)
 
-    private fun begin(address: String?, peer: NearbyProfile?) {
+    private fun begin(address: String?, peer: UserProfile?) {
         close()
         mutable.value = ChatState(ChatPhase.SETUP, peer, "Подключение…")
         guarded {
             val bluetooth = checkNotNull(manager)
-            val next = if (address == null) HostLink(this, app, bluetooth)
-                else ClientLink(this, app, bluetooth.adapter.getRemoteDevice(address))
+            val next = if (address == null) HostLinkManager(app, listener, bluetooth)
+                else ClientLinkManager(app, listener, bluetooth.adapter.getRemoteDevice(address))
             link = next
             armTimeout()
             next.open()
         }
     }
 
-    internal fun event(source: ChatLink, action: () -> Unit) {
-        handler.post { if (source === link) guarded(action) }
+    // Transport callbacks are serialized on the main thread and scoped to the active link.
+    private val listener = object : LinkListener {
+        override fun dispatch(source: Transport, action: () -> Unit) {
+            handler.post { if (source === link) guarded(action) }
+        }
+
+        override fun onListening(source: Transport) = listen()
+
+        override fun onConnected(source: Transport) {
+            if (source is HostLinkManager) accepting()
+        }
+
+        override fun onReady(source: Transport) {
+            // The client initiates the profile exchange; the host waits for it.
+            if (source is ClientLinkManager) {
+                check(source.write(introduction())) { "Failed to send client profile" }
+            }
+        }
+
+        override fun onDataReceived(source: Transport, bytes: ByteArray) {
+            if (!identityReceived) {
+                identify(bytes)
+                identityReceived = true
+                if (source is HostLinkManager) {
+                    check(source.write(introduction())) { "Failed to send host profile" }
+                }
+                finishHandshake()
+            } else receive(bytes)
+        }
+
+        override fun onDataSent(source: Transport) {
+            if (!identityWritten) {
+                identityWritten = true
+                finishHandshake()
+            } else acknowledged()
+        }
+
+        override fun onDisconnected(source: Transport) = end("Соединение завершено")
+
+        override fun onError(source: Transport, reason: String) = end(reason)
+    }
+
+    private fun finishHandshake() {
+        if (identityWritten && identityReceived && mutable.value.phase == ChatPhase.SETUP) {
+            ready()
+        }
     }
 
     internal fun listen() {
@@ -63,7 +115,7 @@ class DirectChat(context: Context, private val advertiser: BleAdvertiser) {
     }
 
     fun advertisingFailed(reason: String) {
-        if (link is HostLink && mutable.value.phase == ChatPhase.WAITING) end(reason)
+        if (link is HostLinkManager && mutable.value.phase == ChatPhase.WAITING) end(reason)
     }
 
     internal fun accepting() {
@@ -75,7 +127,7 @@ class DirectChat(context: Context, private val advertiser: BleAdvertiser) {
     internal fun introduction() = advertiser.profile.encode()
 
     internal fun identify(bytes: ByteArray) {
-        val peer = requireNotNull(NearbyProfile.decode(bytes))
+        val peer = requireNotNull(UserProfile.decode(bytes))
         val expected = mutable.value.peer
         check(peer.id != advertiser.profile.id && (expected == null || expected.id == peer.id))
         mutable.value = mutable.value.copy(peer = peer)
@@ -142,8 +194,10 @@ class DirectChat(context: Context, private val advertiser: BleAdvertiser) {
         handler.removeCallbacks(timeout)
         val old = link
         link = null
-        if (old is HostLink) advertiser.stopAdvertising()
+        if (old is HostLinkManager) advertiser.stopAdvertising()
         old?.close()
+        identityWritten = false
+        identityReceived = false
         incoming = ChatFrames()
         frames.clear()
         outgoing = ""
@@ -151,13 +205,14 @@ class DirectChat(context: Context, private val advertiser: BleAdvertiser) {
 
     private inline fun guarded(action: () -> Unit) {
         try { action() }
-        catch (e: SecurityException) { end("Нет разрешения Bluetooth") }
-        catch (e: RuntimeException) { end("Ошибка обмена по Bluetooth") }
+        catch (e: SecurityException) {
+            Log.e("DirectChat", "Bluetooth permission error", e)
+            end("Нет разрешения Bluetooth")
+        }
+        catch (e: RuntimeException) {
+            Log.e("DirectChat", "Bluetooth communication error", e)
+            end("Ошибка обмена по Bluetooth")
+        }
     }
 }
 
-internal interface ChatLink {
-    fun open()
-    fun write(bytes: ByteArray): Boolean
-    fun close()
-}
