@@ -92,7 +92,7 @@ class OnboardingFlowCoordinator(
             is OnboardingState.ALL_SET -> OnboardingState.COMPLETED
             is OnboardingState.COMPLETED -> getNextMissingState()
             is OnboardingState.FAILED -> previousState // Stay on the error screen
-            is OnboardingState.RUQUIRED_PERMISSION_REJECTED -> getNextMissingState()
+            is OnboardingState.REQUIRED_PERMISSION_REJECTED -> getNextMissingState()
         }
 
         _currentState.value = newState
@@ -200,7 +200,7 @@ class OnboardingFlowCoordinator(
             }
             else -> {
                 Log.w(TAG, "Critical permissions denied: $deniedCriticalPermissions")
-                _currentState.value = OnboardingState.RUQUIRED_PERMISSION_REJECTED
+                _currentState.value = OnboardingState.REQUIRED_PERMISSION_REJECTED
             }
         }
     }

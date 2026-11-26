@@ -1,9 +1,10 @@
 package com.example.scratched
 
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+import com.example.scratched.transport.meshBLE.BleScanner
+import com.example.scratched.transport.meshBLE.BleAdvertiser
+import com.example.scratched.feature.chat.DirectChat
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
@@ -11,10 +12,12 @@ import com.example.scratched.onboarding.OnboardingStatusRepository
 import com.example.scratched.utilities.PermissionsManager
 
 class MainViewModelFactory(
+    private val chat: DirectChat,
     private val permissionsManager: PermissionsManager,
     private val bluetoothStateManager: BluetoothStateManager,
     private val locationStateManager: LocationStateManager,
-    private val gattClientManager: BluetoothGattClientManager,
+    private val gattClientManager: BleScanner,
+    private val gattServerManager: BleAdvertiser,
     private val repository: OnboardingStatusRepository
 ) : ViewModelProvider.Factory {
 
@@ -33,7 +36,9 @@ class MainViewModelFactory(
                 bluetoothStatusManager = bluetoothStateManager,
                 locationStateManager = locationStateManager,
                 permissionsManager = permissionsManager,
-                gattClientManager = gattClientManager
+                gattClientManager = gattClientManager,
+                gattServerManager = gattServerManager,
+                chat = chat
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
