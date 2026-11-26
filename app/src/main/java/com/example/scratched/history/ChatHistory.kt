@@ -5,7 +5,6 @@ import android.database.SQLException
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import com.example.scratched.meshMVP.transport.NearbyProfile
 import com.example.scratched.meshMVP.transport.chat.ChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -1,6 +1,5 @@
 package com.example.scratched
 
-import com.example.scratched.meshMVP.transport.NearbyProfile
 import org.junit.Assert.*
 import org.junit.Test
 

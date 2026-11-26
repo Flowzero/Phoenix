@@ -13,8 +13,7 @@ import android.content.Context
 import android.os.ParcelUuid
 import android.os.SystemClock
 import com.example.scratched.constants.AppConstants
-import com.example.scratched.meshMVP.transport.BleScanResult
-import com.example.scratched.meshMVP.transport.NearbyProfile
+import com.example.scratched.transport.meshBLE.BleScanResult
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

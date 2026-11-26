@@ -7,7 +7,6 @@ import com.example.scratched.transport.meshBLE.BleScanner
 import com.example.scratched.transport.meshBLE.BleAdvertiser
 import com.example.scratched.meshMVP.transport.chat.DirectChat
 import com.example.scratched.transport.meshBLE.AdvertisingPhase
-import com.example.scratched.meshMVP.transport.NearbyProfile
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import com.example.scratched.utilities.bluetooth.BluetoothState

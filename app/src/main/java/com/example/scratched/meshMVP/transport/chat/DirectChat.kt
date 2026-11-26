@@ -4,7 +4,6 @@ import com.example.scratched.history.ChatHistory
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.content.Context
-import com.example.scratched.meshMVP.transport.NearbyProfile
 import android.os.Handler
 import android.os.Looper
 import com.example.scratched.transport.meshBLE.BleAdvertiser

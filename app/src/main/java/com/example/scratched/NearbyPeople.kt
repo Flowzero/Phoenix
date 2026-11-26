@@ -1,7 +1,5 @@
 package com.example.scratched
 
-import com.example.scratched.meshMVP.transport.NearbyProfile
-
 data class NearbyPerson(val profile: NearbyProfile, val address: String)
 
 class NearbyPeople(private val selfId: Int) {

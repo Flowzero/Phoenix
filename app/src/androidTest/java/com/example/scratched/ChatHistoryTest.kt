@@ -3,7 +3,6 @@ package com.example.scratched
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.scratched.history.ChatHistory
-import com.example.scratched.meshMVP.transport.NearbyProfile
 import com.example.scratched.meshMVP.transport.chat.ChatMessage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
