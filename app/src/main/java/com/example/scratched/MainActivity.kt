@@ -1,6 +1,5 @@
 package com.example.scratched
 
-
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -34,7 +33,7 @@ import com.example.scratched.onboarding.EnableBluetoothScreen
 import com.example.scratched.onboarding.EnableLocationScreen
 import com.example.scratched.onboarding.GrantPermissionsManually
 import com.example.scratched.onboarding.LocationPermissionScreen
-import com.example.scratched.onboarding.MainAppScreen
+
 
 import com.example.scratched.onboarding.NotificationPermissionScreen
 import com.example.scratched.onboarding.OnboardingState
@@ -42,12 +41,16 @@ import com.example.scratched.onboarding.OnboardingPrefsRepository
 import com.example.scratched.onboarding.WelcomeScreen
 import com.example.scratched.ui.theme.ScratchedTheme
 import com.example.scratched.utilities.PermissionsManager
+import com.example.scratched.user.UserProfilePrefsRepository
 import kotlinx.coroutines.launch
 
-import com.example.scratched.BleDeviceUiModel
-import com.example.scratched.BleScanStatus
-import com.example.scratched.MainScreenUiState
-import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+
+
+
+import com.example.scratched.transport.meshBLE.BleScanner
+import com.example.scratched.transport.meshBLE.BleAdvertiser
+import com.example.scratched.feature.chat.ChatPhase
+import com.example.scratched.feature.chat.DirectChat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -62,17 +65,24 @@ class MainActivity : ComponentActivity() {
     private val managerScope = CoroutineScope(Dispatchers.IO+ SupervisorJob())
 
     private val viewModel: MainViewModel by this.viewModels {
+        val advertiser = BleAdvertiser(
+            applicationContext,
+            PermissionsManager(applicationContext),
+            UserProfilePrefsRepository(applicationContext)
+        )
         MainViewModelFactory(
+            chat = DirectChat(applicationContext, advertiser),
             permissionsManager = PermissionsManager(this),
             bluetoothStateManager = BluetoothStateManager(
                 this,
                 UsableBluetoothAdapter(this)),
             locationStateManager = LocationStateManager(UsableLocationAdapter(this)),
             repository = OnboardingPrefsRepository(this),
-            gattClientManager = BluetoothGattClientManager(
+            gattClientManager = BleScanner(
                 context = this,
                 connectionScope = managerScope,
-                permissionsManager = PermissionsManager(this))
+                permissionsManager = PermissionsManager(this)),
+            gattServerManager = advertiser
         )
     }
 
@@ -102,12 +112,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             ScratchedTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    OnboardingFlowScreen(
-                        viewModel = viewModel,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    )
+                    ChatNavigation(viewModel, Modifier.fillMaxSize().padding(innerPadding)) {
+                        OnboardingFlowScreen(viewModel, Modifier.fillMaxSize())
+                    }
                 }
             }
         }
@@ -157,14 +164,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // If user updated the Bluetooth state in settings
-        viewModel.refreshState()
+        viewModel.setForeground(true)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        // Stop scanning if activity is killed! (FOR NOW: TEST IMPL!)
-        viewModel.onStopScanClicked()
+    override fun onStop() {
+        if (!isChangingConfigurations) viewModel.setForeground(false)
+        super.onStop()
     }
 
     @Composable
@@ -185,7 +190,7 @@ class MainActivity : ComponentActivity() {
                 onContinue = { viewModel.onRequestPermissionsClicked() }
             )
 
-            is OnboardingState.RUQUIRED_PERMISSION_REJECTED -> GrantPermissionsManually(
+            is OnboardingState.REQUIRED_PERMISSION_REJECTED -> GrantPermissionsManually(
                 modifier = modifier,
                 onContinue = { onGrantPermissionsManuallyClicked() },
                 onCheck =  { viewModel.onNextClicked() }
@@ -224,15 +229,20 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun MainAppScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
-        val uiState by viewModel.uiState.collectAsState()
-
-        MainAppScreen(
-            modifier = modifier,
-            uiState = uiState,
-            onStartScan = { viewModel.onStartScanClicked() },
-            onStopScan = { viewModel.onStopScanClicked() },
-            onDeviceClick = { device -> viewModel.onDeviceClick(device) },
-            onRestartOnboarding = { viewModel.onRestartOnboardingClick() }
-        )
+        val chat by viewModel.chat.state.collectAsState()
+        if (chat.peer != null) {
+            DirectChatScreen(chat, viewModel.chat.history, viewModel.chat::send, viewModel::returnToPeople, modifier)
+        } else {
+            val people by viewModel.people.collectAsState()
+            val profile by viewModel.profile.collectAsState()
+            val scanError by viewModel.scanError.collectAsState()
+            val issue = when {
+                scanError != null -> "Не удалось найти людей рядом"
+                chat.phase == ChatPhase.ENDED -> "Не удалось принять соединение"
+                else -> null
+            }
+            NearbyScreen(profile, people, issue, viewModel::openConversation, viewModel::rename,
+                viewModel::retryDiscovery, modifier)
+        }
     }
 }

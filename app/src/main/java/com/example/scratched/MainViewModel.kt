@@ -1,18 +1,22 @@
 package com.example.scratched
 
+import com.example.scratched.user.UserProfile
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.scratched.meshMVP.transport.BluetoothGattClientManager
+import com.example.scratched.transport.meshBLE.BleScanner
+import com.example.scratched.transport.meshBLE.BleAdvertiser
+import com.example.scratched.feature.chat.DirectChat
+import com.example.scratched.transport.meshBLE.AdvertisingPhase
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import com.example.scratched.utilities.bluetooth.BluetoothState
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingEvent
 import com.example.scratched.onboarding.OnboardingFlowCoordinator
-import com.example.scratched.onboarding.OnboardingPrefsRepository
 import com.example.scratched.onboarding.OnboardingState
-import com.example.scratched.onboarding.OnboardingStatusRepository
 import com.example.scratched.utilities.PermissionsManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -22,16 +26,16 @@ import kotlinx.coroutines.launch
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 
 class MainViewModel(
     private val onboardingFlowCoordinator: OnboardingFlowCoordinator,
     private val bluetoothStatusManager: BluetoothStateManager,
     private val locationStateManager: LocationStateManager,
 
-    //TEST
     private val permissionsManager: PermissionsManager,
-    private val gattClientManager: BluetoothGattClientManager
+    private val gattClientManager: BleScanner,
+    val chat: DirectChat,
+    private val gattServerManager: BleAdvertiser
 ) : ViewModel() {
     companion object {
         const val TAG = "MainViewModel"
@@ -44,17 +48,23 @@ class MainViewModel(
     // accessible from Activity
     val activityEvents: SharedFlow<ActivityEvent> = _activityEvents.asSharedFlow()
 
-    private val _uiState = MutableStateFlow(MainScreenUiState())
-    val uiState: StateFlow<MainScreenUiState> = _uiState.asStateFlow()
-    private val deviceMap = mutableMapOf<String, BleDeviceUiModel>()
+    private val directory = NearbyPeople(gattServerManager.profile.id)
+    private val _people = MutableStateFlow(emptyList<NearbyPerson>())
+    val people = _people.asStateFlow()
+    private val _profile = MutableStateFlow(gattServerManager.profile)
+    val profile = _profile.asStateFlow()
+    val scanError = gattClientManager.scanError
+    private var foreground = false
+    private var discovery: Job? = null
 
     init {
         onboardingFlowCoordinator.startAppFlow()
         bluetoothStatusManager.startMonitoring()
-        updateBaseState()
+        reconcileDiscovery()
 
         viewModelScope.launch {
             bluetoothStatusManager.bluetoothStateFlow.collect { state ->
+                reconcileDiscovery()
                 if (state == BluetoothState.DISABLED &&
                     onboardingState.value == OnboardingState.COMPLETED) {
 
@@ -79,35 +89,88 @@ class MainViewModel(
         }
 
         viewModelScope.launch {
-            gattClientManager.discoveredDevices.collect { newDevice ->
-                val existingDevice = deviceMap[newDevice.address]
-
-                val updatedDevice = if (existingDevice != null) {
-                    existingDevice.copy(
-                        rssi = newDevice.rssi,
-                        lastSeenAtMillis = newDevice.lastSeenAtMillis,
-                        scanCount = existingDevice.scanCount + 1,
-                        name = if (existingDevice.name.isNullOrBlank()) newDevice.name else existingDevice.name
-                    )
-                } else {
-                    newDevice
-                }
-
-                deviceMap[updatedDevice.address] = updatedDevice
-
-                _uiState.update { currentState ->
-                    currentState.copy(
-                        devices = deviceMap.values.toList(),
-                        discoveredDeviceCount = deviceMap.size
-                    )
+            gattServerManager.advertisingState.collect { state ->
+                if (state.phase == AdvertisingPhase.ERROR) {
+                    chat.advertisingFailed(state.error ?: "Не удалось запустить рекламу Bluetooth")
                 }
             }
         }
+        viewModelScope.launch { onboardingState.collect { reconcileDiscovery() } }
+        viewModelScope.launch {
+            gattClientManager.discoveredDevices.collect { result ->
+                if (discovery == null) return@collect
+                directory.observe(result.profile, result.address, result.observedAtMillis)
+                refreshPeople()
+            }
+        }
+    }
 
+    private fun refreshPeople() {
+        _people.value = directory.present(android.os.SystemClock.elapsedRealtime())
+    }
+
+    fun setForeground(visible: Boolean) {
+        foreground = visible
+        if (visible && onboardingState.value == OnboardingState.COMPLETED &&
+            (!permissionsManager.areAllRequiredPermissionsGranted() || !bluetoothStatusManager.isEnabled())) {
+            onboardingFlowCoordinator.navigateToNextStep()
+        }
+        reconcileDiscovery()
+    }
+
+    private fun reconcileDiscovery() {
+        val enabled = foreground && onboardingState.value == OnboardingState.COMPLETED &&
+            bluetoothStatusManager.isEnabled() && permissionsManager.areAllRequiredPermissionsGranted()
+        if (!enabled) {
+            discovery?.cancel()
+            discovery = null
+            gattClientManager.stopScanning()
+            chat.close()
+            directory.clear()
+            refreshPeople()
+            return
+        }
+        if (discovery != null) return
+        discovery = viewModelScope.launch {
+            while (true) {
+                refreshPeople()
+                delay(3_000)
+            }
+        }
+        gattClientManager.startScanning()
+        chat.host()
+    }
+
+    fun openConversation(person: NearbyPerson) {
+        val current = directory.present(android.os.SystemClock.elapsedRealtime()).find { it.profile.id == person.profile.id }
+        if (discovery != null && current != null && chat.state.value.peer == null) {
+            chat.connect(current.address, current.profile)
+        }
+    }
+
+    fun returnToPeople() {
+        if (discovery != null) chat.host() else chat.close()
+    }
+
+    fun retryDiscovery() {
+        if (discovery == null) return
+        gattClientManager.startScanning()
+        if (chat.state.value.peer == null) chat.host()
+    }
+
+    fun rename(name: String) {
+        if (UserProfile.validName(name) && name != profile.value.name) {
+            gattServerManager.rename(name)
+            _profile.value = gattServerManager.profile
+            if (discovery != null && chat.state.value.peer == null) chat.host()
+        }
     }
 
     override fun onCleared() {
         super.onCleared()
+        chat.close()
+        gattServerManager.close()
+        gattClientManager.stopScanning()
         bluetoothStatusManager.stopMonitoring()
     }
 
@@ -123,6 +186,7 @@ class MainViewModel(
 
     fun onPermissionsResult(result: Map<String, Boolean>) {
         onboardingFlowCoordinator.onHandlePermissionsResult(result)
+        reconcileDiscovery()
     }
 
     fun onBluetoothEnableResult(isSuccess: Boolean) {
@@ -175,57 +239,4 @@ class MainViewModel(
         }
     }
 
-    private fun updateBaseState() {
-        _uiState.update {
-            it.copy(
-                isBluetoothEnabled = true, // temp const val
-                hasRequiredPermissions = permissionsManager.areAllRequiredPermissionsGranted()
-            )
-        }
-    }
-
-    fun onRestartOnboardingClick() {
-        onboardingFlowCoordinator.resetOnboarding()
-        onboardingFlowCoordinator.startAppFlow()
-    }
-
-    fun onStartScanClicked() {
-        updateBaseState()
-        val currentState = _uiState.value
-
-        if (!currentState.hasRequiredPermissions) {
-            _uiState.update { it.copy(scanStatus = BleScanStatus.PERMISSION_REQUIRED) }
-            return
-        }
-        if (!currentState.isBluetoothEnabled) {
-            _uiState.update { it.copy(scanStatus = BleScanStatus.BLUETOOTH_DISABLED) }
-            return
-        }
-
-        deviceMap.clear()
-        _uiState.update {
-            it.copy(
-                scanStatus = BleScanStatus.SCANNING,
-                scanStartedAtMillis = System.currentTimeMillis(),
-                devices = emptyList(),
-                discoveredDeviceCount = 0
-            )
-        }
-
-        gattClientManager.startScanning()
-    }
-
-    fun onStopScanClicked() {
-        gattClientManager.stopScanning()
-        _uiState.update { it.copy(scanStatus = BleScanStatus.STOPPED) }
-    }
-
-    fun onDeviceClick(device: BleDeviceUiModel) {
-        Log.d(TAG, "Device clicked: ${device.displayName} (${device.address})")
-        // TODO: call gattClientManager.connectToDevice(device.address)
-    }
-
-    fun refreshState() {
-        updateBaseState()
-    }
 }
