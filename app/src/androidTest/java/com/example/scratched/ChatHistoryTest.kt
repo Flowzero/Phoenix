@@ -4,8 +4,8 @@ import com.example.scratched.user.UserProfile
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.example.scratched.history.ChatHistory
-import com.example.scratched.meshMVP.transport.chat.ChatMessage
+import com.example.scratched.feature.chat.ChatHistory
+import com.example.scratched.feature.chat.ChatMessage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals

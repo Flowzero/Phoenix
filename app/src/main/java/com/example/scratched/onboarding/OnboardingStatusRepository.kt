@@ -7,7 +7,7 @@ package com.example.scratched.onboarding
  * onboarding state without knowing how the data is stored.
  */
 
-internal interface OnboardingStatusRepository {
+interface OnboardingStatusRepository {
     fun isFirstTimeLaunch(): Boolean
     fun isCompleted(): Boolean
     fun markComplete()

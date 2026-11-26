@@ -1,6 +1,5 @@
-package com.example.scratched.meshMVP.transport.chat
+package com.example.scratched.feature.chat
 
-import com.example.scratched.history.ChatHistory
 import com.example.scratched.user.UserProfile
 import com.example.scratched.transport.Transport
 import com.example.scratched.transport.LinkListener

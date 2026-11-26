@@ -29,7 +29,7 @@ import kotlinx.coroutines.flow.StateFlow
  * @property onboardingStatusRepository
  */
 
-internal class OnboardingFlowCoordinator(
+class OnboardingFlowCoordinator(
     private val permissionsManager: PermissionsManager,
     private val bluetoothStateManager: BluetoothStateManager,
     private val locationStateManager: LocationStateManager,

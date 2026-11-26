@@ -12,7 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.scratched.meshMVP.transport.chat.ChatState
+import com.example.scratched.feature.chat.ChatState
 import kotlinx.coroutines.flow.catch
 
 @Composable

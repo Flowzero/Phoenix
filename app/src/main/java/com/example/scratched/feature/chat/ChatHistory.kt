@@ -1,4 +1,4 @@
-package com.example.scratched.history
+package com.example.scratched.feature.chat
 
 import com.example.scratched.user.UserProfile
 
@@ -7,7 +7,7 @@ import android.database.SQLException
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import com.example.scratched.meshMVP.transport.chat.ChatMessage
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOn
@@ -38,7 +38,7 @@ class ChatHistory(context: Context) : SQLiteOpenHelper(
             try {
                 append(peer, message)
             } catch (failure: SQLException) {
-                android.util.Log.e("ChatHistory", "Could not save message", failure)
+                Log.e("ChatHistory", "Could not save message", failure)
                 writeError.value = true
             }
         }

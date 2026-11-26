@@ -79,7 +79,7 @@ internal class HostLinkManager(
             } else {
                 listener.onError(
                     this,
-                    "Не удалось зарегистрировать GATT-сервис ($status)"
+                    "Failed to register GATT service: ($status)"
                 )
             }
         }
@@ -87,28 +87,47 @@ internal class HostLinkManager(
 
     // One peer per transport instance.
     override fun onConnectionStateChange(
-        device: BluetoothDevice,
+        device: BluetoothDevice?,
         status: Int,
         newState: Int
-    ) = listener.dispatch(this) {
-        if (status == BluetoothGatt.GATT_SUCCESS &&
-            newState == BluetoothProfile.STATE_CONNECTED
-        ) {
-            if (!gattServiceRegistered) {
-                gattServer?.cancelConnection(device)
-            } else if (peer == null) {
-                peer = device
-                listener.onConnected(this)
-            } else if (peer != device) {
-                gattServer?.cancelConnection(device)
-            }
-        } else if (peer == device) {
-            if (status != BluetoothGatt.GATT_SUCCESS) {
+    ) {
+        // super.onConnectionStateChange(device, status, newState)
+
+        listener.dispatch(this) {
+            // new device successfully connected
+            if (status == BluetoothGatt.GATT_SUCCESS &&
+                newState == BluetoothGatt.STATE_CONNECTED
+            ) {
+                // normally should not happen
+                if (!gattServiceRegistered) {
+                    gattServer?.cancelConnection(device)
+
+                    // Our server does not yet have a selected conversation partner
+                } else if (peer == null) {
+                    peer = device
+                    listener.onConnected(this)
+
+                    // refuse connection from another device
+                } else if (peer != device) {
+                    gattServer?.cancelConnection(device)
+
+                    // a connection from known device
+                } else if (peer == device) {
+                    // do nothing
+                }
+
+                // process an error or disconnect of partner device
+            } else if (peer == device) {
                 subscribed = false
-                listener.onError(this, "Ошибка Bluetooth-соединения ($status)")
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                subscribed = false
-                listener.onDisconnected(this)
+
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    listener.onError(
+                        this,
+                        "Error occurred while BLE-connection"
+                    )
+                } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                    listener.onDisconnected(this)
+                }
             }
         }
     }
@@ -230,7 +249,7 @@ internal class HostLinkManager(
             } else {
                 listener.onError(
                     this,
-                    "Не удалось отправить данные ($status)"
+                    "Failed to send data: ($status)"
                 )
             }
         }

@@ -36,7 +36,7 @@ data class AdvertisingState(
 )
 
 /**
- * BluetoothGattServerManager is responsible only for advertisement for discovery packets
+ * BluetoothGattServerManager is responsible only for advertising discovery packets
  */
 
 @SuppressLint("MissingPermission")

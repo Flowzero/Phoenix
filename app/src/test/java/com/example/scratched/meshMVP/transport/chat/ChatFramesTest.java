@@ -4,6 +4,8 @@ import org.junit.Test;
 import java.util.List;
 import static org.junit.Assert.*;
 
+import com.example.scratched.feature.chat.ChatFrames;
+
 public class ChatFramesTest {
     @Test public void messagesRoundTripAtFrameAndSizeBoundaries() {
         ChatFrames receiver = new ChatFrames();

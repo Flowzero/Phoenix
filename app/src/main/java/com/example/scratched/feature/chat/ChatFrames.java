@@ -1,4 +1,4 @@
-package com.example.scratched.meshMVP.transport.chat;
+package com.example.scratched.feature.chat;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;

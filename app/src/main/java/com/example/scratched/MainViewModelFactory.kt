@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.scratched.transport.meshBLE.BleScanner
 import com.example.scratched.transport.meshBLE.BleAdvertiser
-import com.example.scratched.meshMVP.transport.chat.DirectChat
+import com.example.scratched.feature.chat.DirectChat
 import com.example.scratched.utilities.stateManagers.BluetoothStateManager
 import com.example.scratched.utilities.stateManagers.LocationStateManager
 import com.example.scratched.onboarding.OnboardingFlowCoordinator

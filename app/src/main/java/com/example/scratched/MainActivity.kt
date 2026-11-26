@@ -49,8 +49,8 @@ import kotlinx.coroutines.launch
 
 import com.example.scratched.transport.meshBLE.BleScanner
 import com.example.scratched.transport.meshBLE.BleAdvertiser
-import com.example.scratched.meshMVP.transport.chat.ChatPhase
-import com.example.scratched.meshMVP.transport.chat.DirectChat
+import com.example.scratched.feature.chat.ChatPhase
+import com.example.scratched.feature.chat.DirectChat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

@@ -1,6 +1,6 @@
 package com.example.scratched
 
-import com.example.scratched.history.ChatHistory
+import com.example.scratched.feature.chat.ChatHistory
 import android.database.SQLException
 import kotlinx.coroutines.flow.catch
 import androidx.activity.compose.BackHandler
@@ -17,11 +17,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.scratched.meshMVP.transport.chat.*
+import com.example.scratched.feature.chat.ChatFrames
+import com.example.scratched.feature.chat.ChatPhase
+import com.example.scratched.feature.chat.ChatState
 
 @Composable
 fun DirectChatScreen(state: ChatState, history: ChatHistory, send: (String) -> Unit, close: () -> Unit,
-    modifier: Modifier = Modifier, saved: Boolean = false, connect: (() -> Unit)? = null) {
+                     modifier: Modifier = Modifier, saved: Boolean = false, connect: (() -> Unit)? = null) {
     val peer = state.peer ?: return
     var count by rememberSaveable(peer.id) { mutableIntStateOf(100) }
     var readFailed by remember(peer.id) { mutableStateOf(false) }
